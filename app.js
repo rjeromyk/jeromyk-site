@@ -92,7 +92,7 @@
     });
   }
 
-  // Intersection observer for stat animations
+  // Intersection observer for stat animations — observe each stat element individually
   const statObserver = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       if (entry.isIntersecting) {
@@ -100,9 +100,24 @@
         statObserver.unobserve(entry.target);
       }
     });
-  }, { threshold: 0.3 });
+  }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
 
-  document.querySelectorAll('.stats-bar').forEach(el => statObserver.observe(el));
+  // Observe both .stats-bar containers and individual .stat__number elements as fallback
+  const statBars = document.querySelectorAll('.stats-bar');
+  if (statBars.length > 0) {
+    statBars.forEach(el => statObserver.observe(el));
+  } else {
+    // Fallback: if no stats-bar, observe individual counters
+    document.querySelectorAll('[data-count]').forEach(el => statObserver.observe(el));
+  }
+
+  // Additional fallback: run counters after short delay if still at zero
+  setTimeout(function() {
+    const hasUnanimate = Array.from(document.querySelectorAll('[data-count]')).some(
+      el => !el.dataset.animated
+    );
+    if (hasUnanimate) animateNumbers();
+  }, 800);
 
   /* ── Active Nav Link ── */
   const currentPath = window.location.pathname.split('/').pop() || 'index.html';

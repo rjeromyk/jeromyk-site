@@ -407,10 +407,10 @@ a.btn--ghost {
 
 /* ── Section Spacing ── */
 .section {
-  padding-block: clamp(var(--space-12), 8vw, var(--space-24));
+  padding-block: clamp(var(--space-10), 5vw, var(--space-16));
 }
 .section--sm {
-  padding-block: clamp(var(--space-8), 5vw, var(--space-16));
+  padding-block: clamp(var(--space-6), 3vw, var(--space-10));
 }
 
 /* ── Stats Bar ── */
@@ -465,7 +465,8 @@ a.btn--ghost {
 /* ── Hero ── */
 .hero {
   position: relative;
-  padding-block: clamp(var(--space-16), 10vw, var(--space-32));
+  padding-top: clamp(var(--space-12), 6vw, var(--space-20));
+  padding-bottom: clamp(var(--space-8), 4vw, var(--space-16));
   overflow: hidden;
 }
 .hero::before {
@@ -809,7 +810,8 @@ textarea.input {
 
 /* ── Page Header ── */
 .page-header {
-  padding-block: clamp(var(--space-12), 8vw, var(--space-20));
+  padding-top: clamp(var(--space-10), 5vw, var(--space-16));
+  padding-bottom: clamp(var(--space-6), 3vw, var(--space-10));
   text-align: left;
 }
 .page-header__eyebrow {
