@@ -11,7 +11,7 @@
 <meta property="og:type" content="website">
 <meta property="og:title" content="Jeromy Kovatana — Insurance Lead Generation Expert">
 <meta property="og:description" content="I help insurance agencies scale to $100K+/month in ad spend — profitably. $3M+ managed monthly, 1M+ leads generated.">
-<meta property="og:url" content="https://jeromyk.com">
+<meta property="og:url" content="https://jeromykovatana.com">
 <meta property="og:site_name" content="Jeromy Kovatana">
 
 <!-- JSON-LD Person Schema -->
@@ -20,7 +20,7 @@
   "@context": "https://schema.org",
   "@type": "Person",
   "name": "Jeromy Kovatana",
-  "url": "https://jeromyk.com",
+  "url": "https://jeromykovatana.com",
   "jobTitle": "Insurance Lead Generation Expert",
   "worksFor": { "@type": "Organization", "name": "LeadsBakery", "url": "https://leadsbakery.com" },
   "alumniOf": { "@type": "CollegeOrUniversity", "name": "Oklahoma State University" },
@@ -33,6 +33,12 @@
   ]
 }
 </script>
+
+<!-- Icons & canonical -->
+<link rel="icon" type="image/png" href="./jk-favicon.png">
+<link rel="canonical" href="https://jeromykovatana.com/">
+<meta property="og:image" content="https://jeromykovatana.com/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
 
 <!-- Fonts -->
 <link href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&f[]=satoshi@300,400,500,600,700&display=swap" rel="stylesheet">
@@ -304,12 +310,9 @@
               </ul>
             </div>
             <div style="position:relative;z-index:1;">
-              <!-- SETUP: Connect this form to your email platform:
-                   Option A (GHL): Set form action to your GHL webhook URL
-                   Option B (ConvertKit): Add data-sv-form="YOUR_FORM_ID" attribute
-                   Option C (Mailchimp): Set action to your Mailchimp form URL
-                   Current: Form submits to "#" - replace with your platform URL -->
-              <form class="lead-magnet__form" action="#" method="POST">
+              <!-- Posts to /api/contact (emails Jeromy), then opens playbook.pdf -->
+              <form class="lead-magnet__form" data-lead-form="playbook">
+                <input type="text" name="_gotcha" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;height:0;width:0;border:0;padding:0;">
                 <label class="form-label" for="lead-email">Email Address</label>
                 <input type="email" id="lead-email" name="email" class="input" placeholder="you@agency.com" required>
                 <button type="submit" class="btn btn--primary" style="width:100%;margin-top:var(--space-2);">Get the Playbook →</button>

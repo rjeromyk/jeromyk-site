@@ -128,20 +128,45 @@
     }
   });
 
-  /* ── Form submission (prevent default for demo) ── */
-  document.querySelectorAll('form').forEach(form => {
-    form.addEventListener('submit', e => {
+  /* ── Lead form submission → /api/contact (emails Jeromy via FormSubmit relay) ── */
+  document.querySelectorAll('form[data-lead-form]').forEach(form => {
+    form.addEventListener('submit', async e => {
       e.preventDefault();
       const btn = form.querySelector('button[type="submit"]');
-      if (btn) {
-        const original = btn.textContent;
-        btn.textContent = 'Sent! ✓';
+      if (!btn || btn.disabled) return;
+      const original = btn.textContent;
+      btn.textContent = 'Sending…';
+      btn.disabled = true;
+
+      const data = Object.fromEntries(new FormData(form).entries());
+      data.form_type = form.dataset.leadForm;
+      data.page = window.location.pathname;
+
+      try {
+        const res = await fetch('/api/contact', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        if (!res.ok) throw new Error('send failed');
+
+        btn.textContent = form.dataset.leadForm === 'playbook' ? 'Opening your playbook…' : 'Sent! ✓';
         btn.style.background = 'var(--color-success)';
+        form.reset();
+
+        if (form.dataset.leadForm === 'playbook') {
+          window.open('./playbook.pdf', '_blank', 'noopener');
+        }
+
         setTimeout(() => {
           btn.textContent = original;
           btn.style.background = '';
-          form.reset();
-        }, 2000);
+          btn.disabled = false;
+        }, 4000);
+      } catch (err) {
+        btn.textContent = 'Something went wrong — try again';
+        btn.disabled = false;
+        setTimeout(() => { btn.textContent = original; }, 4000);
       }
     });
   });
