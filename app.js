@@ -128,7 +128,11 @@
     }
   });
 
-  /* ── Lead form submission → /api/contact (emails Jeromy via FormSubmit relay) ── */
+  /* ── Lead form submission → FormSubmit (alias endpoint, emails Jeromy) ──
+     Submitted from the browser because FormSubmit's Cloudflare blocks
+     datacenter (serverless) IPs. The alias string hides the real address. */
+  const FORM_ENDPOINT = 'https://formsubmit.co/ajax/63915fc9a7b160b14c65001e56be5180';
+
   document.querySelectorAll('form[data-lead-form]').forEach(form => {
     form.addEventListener('submit', async e => {
       e.preventDefault();
@@ -139,16 +143,23 @@
       btn.disabled = true;
 
       const data = Object.fromEntries(new FormData(form).entries());
+      const isPlaybook = form.dataset.leadForm === 'playbook';
       data.form_type = form.dataset.leadForm;
       data.page = window.location.pathname;
+      data._subject = isPlaybook
+        ? 'Playbook download: ' + (data.email || '')
+        : 'New strategy call inquiry: ' + (data.name || data.email || '');
+      data._template = 'table';
+      data._captcha = 'false';
 
       try {
-        const res = await fetch('/api/contact', {
+        const res = await fetch(FORM_ENDPOINT, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
           body: JSON.stringify(data)
         });
-        if (!res.ok) throw new Error('send failed');
+        const result = await res.json().catch(() => ({}));
+        if (!res.ok || !(result.success === true || result.success === 'true')) throw new Error('send failed');
 
         btn.textContent = form.dataset.leadForm === 'playbook' ? 'Opening your playbook…' : 'Sent! ✓';
         btn.style.background = 'var(--color-success)';

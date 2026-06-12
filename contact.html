@@ -114,9 +114,9 @@
             <h2 style="font-family:var(--font-display);font-weight:700;font-size:var(--text-lg);margin-bottom:var(--space-2);">Or Send a Message</h2>
             <p style="color:var(--color-text-muted);font-size:var(--text-sm);margin-bottom:var(--space-6);">Prefer to send details first? Fill out the form and I'll respond within 24 hours.</p>
 
-            <!-- Posts to /api/contact, which emails Jeromy (CONTACT_EMAIL env var on Vercel) -->
+            <!-- Submits via FormSubmit alias endpoint (see app.js) — emails Jeromy -->
             <form data-lead-form="contact" style="display:flex;flex-direction:column;gap:var(--space-4);">
-              <input type="text" name="_gotcha" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;height:0;width:0;border:0;padding:0;">
+              <input type="text" name="_honey" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;height:0;width:0;border:0;padding:0;">
               <div>
                 <label for="contact-name" class="form-label">Full Name</label>
                 <input type="text" id="contact-name" name="name" class="input" placeholder="Your name" required>
