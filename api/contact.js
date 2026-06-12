@@ -61,11 +61,18 @@ export default async function handler(req, res) {
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',
+        // FormSubmit rejects requests that don't look like they came from a site.
+        Origin: 'https://jeromykovatana.com',
+        Referer: 'https://jeromykovatana.com/',
       },
       body: JSON.stringify(payload),
     });
     const data = await r.json().catch(() => ({}));
-    if (!r.ok || data.success === false || data.success === 'false') {
+    const success = data.success === true || data.success === 'true';
+    // First-ever submission returns success:false with an activation notice while
+    // FormSubmit emails the owner an "Activate Form" link — not a visitor-facing error.
+    const pendingActivation = /activat/i.test(String(data.message || ''));
+    if (!r.ok || (!success && !pendingActivation)) {
       res.status(502).json({ ok: false, error: 'Email relay failed' });
       return;
     }
