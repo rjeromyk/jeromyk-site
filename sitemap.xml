@@ -45,4 +45,10 @@
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
+  <url><loc>https://jeromykovatana.com/final-expense</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://jeromykovatana.com/veterans</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://jeromykovatana.com/mortgage-protection</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://jeromykovatana.com/iul</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://jeromykovatana.com/trucker</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://jeromykovatana.com/spanish</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
 </urlset>
