@@ -60,6 +60,9 @@
   .foot { text-align:center; font-size:11px; color:rgba(255,255,255,0.35); margin-top:34px; }
   .foot a { color:rgba(255,255,255,0.5); text-decoration:none; }
 </style>
+  <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+  <script defer src="/_vercel/insights/script.js"></script>
+  <script defer src="/_vercel/speed-insights/script.js"></script>
 </head>
 <body>
   <div class="glow" style="top:-140px; right:-120px; width:420px; height:420px; background:radial-gradient(circle, rgba(45,212,191,0.18) 0%, transparent 70%);"></div>
@@ -124,5 +127,11 @@
 
     <p class="foot">© 2026 Jeromy Kovatana · <a href="https://jeromykovatana.com">jeromykovatana.com</a></p>
   </main>
+  <script>
+    document.addEventListener('click', function (e) {
+      var a = e.target.closest('a[href]');
+      if (a && window.va) window.va('event', { name: 'bio_link_click', data: { to: a.href } });
+    });
+  </script>
 </body>
 </html>

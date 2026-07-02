@@ -165,6 +165,11 @@
         btn.style.background = 'var(--color-success)';
         form.reset();
 
+        if (window.va) window.va('event', {
+          name: isPlaybook ? 'playbook_optin' : 'call_inquiry',
+          data: { page: window.location.pathname }
+        });
+
         if (form.dataset.leadForm === 'playbook') {
           window.open('./playbook.pdf', '_blank', 'noopener');
         }
