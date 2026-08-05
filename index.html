@@ -34,6 +34,41 @@
 }
 </script>
 
+<!-- JSON-LD FAQ Schema -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Do you only work with insurance agencies?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. Insurance lead generation is all I do — final expense, veterans, mortgage protection, IUL, Medicare, trucker insurance, and Spanish-language markets. That means I already understand the compliance rules, the buyer, and the unit economics of your product lines." }
+    },
+    {
+      "@type": "Question",
+      "name": "What size agency do you work with?",
+      "acceptedAnswer": { "@type": "Answer", "text": "I work best with IMOs, FMOs, and agency owners spending $50K+/month on lead generation — or those ready to scale to that level. The infrastructure I build is designed for high volume; below roughly $50K/month, it's usually more than you need yet." }
+    },
+    {
+      "@type": "Question",
+      "name": "Do you manage the ad spend, or just advise?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Both — it's done-for-you. I architect the system, build the funnels and automation, and hands-on manage the ad accounts. I'm currently managing $3M+/month in ad spend across clients. You're hiring an operator, not a consultant who hands you a slide deck." }
+    },
+    {
+      "@type": "Question",
+      "name": "Which ad platforms do you run?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Primarily Meta (Facebook and Instagram), where the majority of my $3M+/month runs, plus Google Ads. Every campaign runs inside Meta's financial-services compliance rules from day one." }
+    },
+    {
+      "@type": "Question",
+      "name": "How much does it cost to work with you?",
+      "acceptedAnswer": { "@type": "Answer", "text": "It depends on scope — whether you need full lead-gen infrastructure, ad management, CRM and automation, or all of it. Rather than quote a generic number, I scope each engagement to your product lines and growth target on a strategy call." }
+    }
+  ]
+}
+</script>
+
 <!-- Icons & canonical -->
 <link rel="icon" type="image/png" href="./jk-favicon.png">
 <link rel="canonical" href="https://jeromykovatana.com/">
@@ -41,6 +76,8 @@
 <meta name="twitter:card" content="summary_large_image">
 
 <!-- Fonts -->
+<link rel="preconnect" href="https://api.fontshare.com" crossorigin>
+<link rel="preconnect" href="https://cdn.fontshare.com" crossorigin>
 <link href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&f[]=satoshi@300,400,500,600,700&display=swap" rel="stylesheet">
 
 <!-- Styles -->
@@ -93,8 +130,10 @@
 
   <main id="main">
     <!-- HERO -->
-    <section class="hero">
-      <div class="container">
+    <section class="hero hero--cinematic section-dark">
+      <div class="hero-glow hero-glow--1"></div>
+      <div class="hero-glow hero-glow--2"></div>
+      <div class="container" style="position:relative;z-index:1;">
         <div class="two-col" style="align-items: center;">
           <div>
             <div class="hero__eyebrow">
@@ -107,13 +146,17 @@
             <p class="hero__subtitle">
               From strategy to execution — I build the lead generation systems, manage the ad spend, and deliver the infrastructure agencies need to scale past $100K/month without burning cash.
             </p>
-            <div class="hero__ctas">
-              <a href="./contact.html" class="btn btn--primary btn--lg">Book a Strategy Call</a>
-              <a href="./services.html" class="btn btn--secondary btn--lg">View Services</a>
+            <div class="hero__ctas" data-sticky-show-after>
+              <a href="#book" class="btn btn--primary btn--lg">Book a Strategy Call</a>
+              <a href="#watch" class="btn btn--secondary btn--lg">▶ Watch Me Work</a>
+            </div>
+            <div class="hero-proof">
+              <a href="#watch">18K+ views — “How To Generate Insurance Leads with Facebook Ads”</a>
+              <span>Interviewed on Peter Roberts &amp; JustInsurance</span>
             </div>
           </div>
           <div style="position:relative;">
-            <div style="background:linear-gradient(150deg, #06120f 0%, #0a2e28 48%, #0c4a42 100%);border-radius:var(--radius-xl);border:1px solid var(--color-accent-muted);overflow:hidden;position:relative;">
+            <div style="background:linear-gradient(150deg, #06120f 0%, #0a2e28 48%, #0c4a42 100%);border-radius:var(--radius-xl);border:1px solid var(--color-border);overflow:hidden;position:relative;box-shadow:0 24px 70px rgba(0,0,0,0.5);">
               <div style="position:absolute;top:-50px;right:-50px;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle, rgba(45,212,191,0.25) 0%, transparent 70%);"></div>
               <div style="position:absolute;bottom:-40px;left:-40px;width:180px;height:180px;border-radius:50%;background:radial-gradient(circle, rgba(6,182,212,0.15) 0%, transparent 70%);"></div>
               <img src="./headshot-pro.jpg" alt="Jeromy Kovatana" style="display:block;width:100%;aspect-ratio:4/5;object-fit:cover;object-position:center 20%;position:relative;z-index:1;">
@@ -129,20 +172,30 @@
         <!-- Stats Bar -->
         <div class="stats-bar" style="margin-top: var(--space-12);">
           <div class="stat">
-            <div class="stat__number" data-count="3" data-prefix="$" data-suffix="M+/mo">$0</div>
+            <div class="stat__number" data-count="3" data-prefix="$" data-suffix="M+/mo">$3M+/mo</div>
             <div class="stat__label">Ad Spend Managed</div>
           </div>
           <div class="stat">
-            <div class="stat__number" data-count="1000000" data-suffix="+">0</div>
+            <div class="stat__number" data-count="1000000" data-suffix="+">1,000,000+</div>
             <div class="stat__label">Leads Generated</div>
           </div>
           <div class="stat">
-            <div class="stat__number" data-count="3700" data-suffix="+">0</div>
+            <div class="stat__number" data-count="3700" data-suffix="+">3,700+</div>
             <div class="stat__label">Clients Served</div>
           </div>
           <div class="stat">
-            <div class="stat__number" data-count="50" data-prefix="$" data-suffix="M+">$0</div>
+            <div class="stat__number" data-count="50" data-prefix="$" data-suffix="M+">$50M+</div>
             <div class="stat__label">Premium Placed</div>
+          </div>
+        </div>
+
+        <!-- Featured-on strip -->
+        <div class="featured-strip">
+          <div class="logo-strip">
+            <span>Featured on</span>
+            <span style="color:var(--color-text-muted);">Peter Roberts Podcast</span>
+            <span style="color:var(--color-text-muted);">JustInsurance</span>
+            <span style="color:var(--color-text-muted);">25K+ views across free YouTube trainings</span>
           </div>
         </div>
       </div>
@@ -245,6 +298,53 @@
       </div>
     </section>
 
+    <!-- WATCH — video proof -->
+    <section class="section section-dark fade-in" id="watch">
+      <div class="container">
+        <p class="hero__eyebrow" style="margin-bottom:var(--space-3);">Watch</p>
+        <h2 style="font-family:var(--font-display);font-weight:800;font-size:var(--text-xl);margin-bottom:var(--space-3);max-width:24ch;">See the systems, not just the claims.</h2>
+        <p style="color:var(--color-text-muted);max-width:56ch;margin-bottom:var(--space-10);">Free trainings and podcast interviews where I break down the exact Facebook ads infrastructure behind $3M+/month in managed spend.</p>
+
+        <div style="display:grid;gap:var(--space-6);grid-template-columns:1fr;">
+          <button class="video-facade" data-video="3eR52ojBMY8" aria-label="Play: How To Generate Insurance Leads with Facebook Ads">
+            <img src="https://i.ytimg.com/vi/3eR52ojBMY8/maxresdefault.jpg" onerror="this.onerror=null;this.src='https://i.ytimg.com/vi/3eR52ojBMY8/hqdefault.jpg';" alt="How To Generate Insurance Leads with Facebook Ads — video thumbnail" loading="lazy">
+            <span class="video-facade__play"><span class="video-facade__play-btn"><svg width="26" height="26" viewBox="0 0 24 24" fill="#2dd4bf"><path d="M8 5v14l11-7z"/></svg></span></span>
+            <span class="video-facade__caption">
+              <span class="t">How To Generate Insurance Leads with Facebook Ads (Low Cost, High Intent)</span>
+              <span class="s">18K+ views · Free training on my channel</span>
+            </span>
+          </button>
+
+          <div style="display:grid;gap:var(--space-6);grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr));">
+            <button class="video-facade" data-video="UriG5t86wbU" aria-label="Play: $2 Million per year Insurance Lead Vendor shares his FB ads — Peter Roberts interview">
+              <img src="https://i.ytimg.com/vi/UriG5t86wbU/maxresdefault.jpg" onerror="this.onerror=null;this.src='https://i.ytimg.com/vi/UriG5t86wbU/hqdefault.jpg';" alt="$2M/yr Insurance Lead Vendor shares his FB ads — Peter Roberts podcast" loading="lazy">
+              <span class="video-facade__play"><span class="video-facade__play-btn"><svg width="26" height="26" viewBox="0 0 24 24" fill="#2dd4bf"><path d="M8 5v14l11-7z"/></svg></span></span>
+              <span class="video-facade__caption">
+                <span class="t">$2 MILLION/yr Insurance Lead Vendor shares his FB ads</span>
+                <span class="s">Peter Roberts Podcast · Interview</span>
+              </span>
+            </button>
+
+            <button class="video-facade" data-video="ULiTCgOhTJM" aria-label="Play: 500K Final Expense Facebook Leads — JustInsurance interview">
+              <img src="https://i.ytimg.com/vi/ULiTCgOhTJM/maxresdefault.jpg" onerror="this.onerror=null;this.src='https://i.ytimg.com/vi/ULiTCgOhTJM/hqdefault.jpg';" alt="500K Final Expense Facebook Leads — JustInsurance interview" loading="lazy">
+              <span class="video-facade__play"><span class="video-facade__play-btn"><svg width="26" height="26" viewBox="0 0 24 24" fill="#2dd4bf"><path d="M8 5v14l11-7z"/></svg></span></span>
+              <span class="video-facade__caption">
+                <span class="t">500K Final Expense Facebook Leads?! Let's Talk To A MASTER</span>
+                <span class="s">JustInsurance · Interview</span>
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <p style="margin-top:var(--space-8);font-size:var(--text-sm);color:var(--color-text-muted);">
+          More free trainings:
+          <a href="https://www.youtube.com/watch?v=EpGW34zRGDU" target="_blank" rel="noopener noreferrer">Final Expense Telesales Ads (3.1K+ views)</a> ·
+          <a href="https://www.youtube.com/watch?v=0hL-HbsNX3o" target="_blank" rel="noopener noreferrer">$4 Final Expense Leads (2.7K+ views)</a> ·
+          <a href="https://www.youtube.com/@jeromykovatana" target="_blank" rel="noopener noreferrer">Full channel →</a>
+        </p>
+      </div>
+    </section>
+
     <!-- TESTIMONIALS -->
     <section class="section fade-in" style="background:var(--color-surface-offset);">
       <div class="container">
@@ -265,6 +365,36 @@
             <p class="testimonial__quote">What a great partnership! These guys are top notch. The team has been instrumental in helping me plan the $25K month I just had.</p>
             <div class="testimonial__author">Gabriel H.</div>
             <div class="testimonial__role">Agency Owner</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="section fade-in" id="faq">
+      <div class="container container--default">
+        <p class="hero__eyebrow" style="margin-bottom:var(--space-3);">Straight Answers</p>
+        <h2 style="font-family:var(--font-display);font-weight:800;font-size:var(--text-xl);margin-bottom:var(--space-10);">Questions Agency Owners Ask</h2>
+        <div style="display:flex;flex-direction:column;gap:var(--space-8);">
+          <div>
+            <h3 style="font-size:var(--text-base);font-weight:700;margin-bottom:var(--space-2);">Do you only work with insurance agencies?</h3>
+            <p style="color:var(--color-text-muted);font-size:var(--text-sm);max-width:72ch;">Yes. Insurance lead generation is all I do — final expense, veterans, mortgage protection, IUL, Medicare, trucker insurance, and Spanish-language markets. That means I already understand the compliance rules, the buyer, and the unit economics of your product lines.</p>
+          </div>
+          <div>
+            <h3 style="font-size:var(--text-base);font-weight:700;margin-bottom:var(--space-2);">What size agency do you work with?</h3>
+            <p style="color:var(--color-text-muted);font-size:var(--text-sm);max-width:72ch;">I work best with IMOs, FMOs, and agency owners spending $50K+/month on lead generation — or those ready to scale to that level. The infrastructure I build is designed for high volume; below roughly $50K/month, it's usually more than you need yet.</p>
+          </div>
+          <div>
+            <h3 style="font-size:var(--text-base);font-weight:700;margin-bottom:var(--space-2);">Do you manage the ad spend, or just advise?</h3>
+            <p style="color:var(--color-text-muted);font-size:var(--text-sm);max-width:72ch;">Both — it's done-for-you. I architect the system, build the funnels and automation, and hands-on manage the ad accounts. I'm currently managing $3M+/month in ad spend across clients. You're hiring an operator, not a consultant who hands you a slide deck.</p>
+          </div>
+          <div>
+            <h3 style="font-size:var(--text-base);font-weight:700;margin-bottom:var(--space-2);">Which ad platforms do you run?</h3>
+            <p style="color:var(--color-text-muted);font-size:var(--text-sm);max-width:72ch;">Primarily Meta (Facebook and Instagram), where the majority of my $3M+/month runs, plus Google Ads. Every campaign runs inside Meta's financial-services compliance rules from day one.</p>
+          </div>
+          <div>
+            <h3 style="font-size:var(--text-base);font-weight:700;margin-bottom:var(--space-2);">How much does it cost to work with you?</h3>
+            <p style="color:var(--color-text-muted);font-size:var(--text-sm);max-width:72ch;">It depends on scope — whether you need full lead-gen infrastructure, ad management, CRM and automation, or all of it. Rather than quote a generic number, I scope each engagement to your product lines and growth target on a strategy call. <a href="#book">Book one here</a> and I'll give you a clear picture.</p>
           </div>
         </div>
       </div>
@@ -306,20 +436,24 @@
       </div>
     </section>
 
-    <!-- CTA BANNER -->
-    <section class="section--sm fade-in">
+    <!-- BOOKING -->
+    <section class="section section-dark fade-in" id="book" data-sticky-hide>
       <div class="container">
-        <div class="cta-banner">
-          <h2 class="cta-banner__title">Ready to Scale Your Agency's Lead Generation?</h2>
-          <p class="cta-banner__desc">Book a free strategy call and let's map out how to take your agency from where you are to $100K+/month in profitable ad spend.</p>
-          <a href="./contact.html" class="btn btn--primary btn--lg">Book Your Strategy Call →</a>
+        <div style="text-align:center;margin-bottom:var(--space-8);">
+          <p class="hero__eyebrow" style="margin-bottom:var(--space-3);display:inline-flex;">Ready When You Are</p>
+          <h2 style="font-family:var(--font-display);font-weight:800;font-size:var(--text-xl);margin-bottom:var(--space-3);">Book Your Free Strategy Call</h2>
+          <p style="color:var(--color-text-muted);max-width:560px;margin:0 auto;">30 minutes. A free audit of your ad account and a clear scaling roadmap — whether we work together or not.</p>
         </div>
+        <div style="max-width:900px;margin:0 auto;border:1px solid var(--color-divider);border-radius:var(--radius-lg);overflow:hidden;background:#fff;">
+          <iframe src="https://calendar.google.com/calendar/appointments/schedules/AcZssZ13sRuY7xtl1KeI6HHiODBT8ipbWSO4Nvc1rH8-QRqzt5-5mw47Vad8FLMKDIORhzq4aNXC9FQ8?gv=true" style="border:0;display:block;" width="100%" height="1000" frameborder="0" title="Book a strategy call with Jeromy Kovatana" loading="lazy"></iframe>
+        </div>
+        <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-top:var(--space-4);text-align:center;">Calendar not loading? <a href="https://calendar.app.google/UjwwbYsGsF9ZVn6U8" target="_blank" rel="noopener noreferrer" style="color:var(--color-accent);">Open the booking page in a new tab →</a></p>
       </div>
     </section>
   </main>
 
   <!-- Footer -->
-  <footer class="footer" role="contentinfo">
+  <footer class="footer" role="contentinfo" data-sticky-hide>
     <div class="container">
       <div class="footer__grid">
         <div class="footer__brand">
@@ -375,6 +509,10 @@
       </div>
     </div>
   </footer>
+
+  <div class="mobile-sticky-cta">
+    <a href="#book" class="btn btn--primary">Book Your Free Strategy Call</a>
+  </div>
 
   <script src="./app.js" defer></script>
 </body>

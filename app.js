@@ -128,6 +128,58 @@
     }
   });
 
+  /* ── Video facades — click-to-load YouTube embeds ── */
+  document.querySelectorAll('.video-facade[data-video]').forEach(facade => {
+    facade.addEventListener('click', () => {
+      const id = facade.dataset.video;
+      if (!id) return;
+      const iframe = document.createElement('iframe');
+      iframe.src = 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(id) + '?autoplay=1&rel=0';
+      iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+      iframe.allowFullscreen = true;
+      iframe.title = facade.getAttribute('aria-label') || 'Video';
+      facade.replaceChildren(iframe);
+      facade.style.cursor = 'default';
+      if (window.va) window.va('event', { name: 'video_play', data: { id: id, page: window.location.pathname } });
+    }, { once: true });
+  });
+
+  /* ── Sticky mobile CTA — show only after scrolling past the hero CTAs;
+     hide again when the booking section or footer is on screen ── */
+  const stickyCta = document.querySelector('.mobile-sticky-cta');
+  if (stickyCta && 'IntersectionObserver' in window) {
+    const hideEls = document.querySelectorAll('[data-sticky-hide]');
+    const showAfterEls = document.querySelectorAll('[data-sticky-show-after]');
+    const hideVisible = new Set();
+    let heroCtasVisible = showAfterEls.length > 0;
+    stickyCta.classList.add('mobile-sticky-cta--hidden');
+
+    function updateStickyCta() {
+      const show = !heroCtasVisible && hideVisible.size === 0;
+      stickyCta.classList.toggle('mobile-sticky-cta--hidden', !show);
+    }
+
+    if (showAfterEls.length) {
+      const ioShow = new IntersectionObserver(entries => {
+        entries.forEach(entry => { heroCtasVisible = entry.isIntersecting; });
+        updateStickyCta();
+      }, { threshold: 0 });
+      showAfterEls.forEach(el => ioShow.observe(el));
+    }
+
+    if (hideEls.length) {
+      const ioHide = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) hideVisible.add(entry.target);
+          else hideVisible.delete(entry.target);
+        });
+        updateStickyCta();
+      }, { threshold: 0.02 });
+      hideEls.forEach(el => ioHide.observe(el));
+    }
+    updateStickyCta();
+  }
+
   /* ── Lead form submission → FormSubmit (alias endpoint, emails Jeromy) ──
      Submitted from the browser because FormSubmit's Cloudflare blocks
      datacenter (serverless) IPs. The alias string hides the real address. */
