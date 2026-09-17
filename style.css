@@ -608,6 +608,14 @@ textarea.input {
   min-height: 120px;
 }
 
+select.input {
+  cursor: pointer;
+}
+select.input option {
+  background-color: var(--color-surface);
+  color: var(--color-text);
+}
+
 .form-label {
   display: block;
   font-size: var(--text-xs);
@@ -996,9 +1004,12 @@ textarea.input {
 .blog-grid {
   display: grid;
   gap: var(--space-6);
+  grid-template-columns: 1fr;
 }
 @media (min-width: 768px) {
-  .blog-grid { grid-template-columns: repeat(3, 1fr); }
+  .blog-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 /* ── Misc ── */

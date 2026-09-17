@@ -6,8 +6,14 @@
   /* ── Theme Toggle ── */
   const toggle = document.querySelector('[data-theme-toggle]');
   const root = document.documentElement;
-  // Default to light mode — professional B2B audience
+  // Default to light mode — professional B2B audience, with localStorage persistence
   let currentTheme = 'light';
+  try {
+    const savedTheme = localStorage.getItem('jk_theme');
+    if (savedTheme === 'dark' || savedTheme === 'light') {
+      currentTheme = savedTheme;
+    }
+  } catch (e) {}
   root.setAttribute('data-theme', currentTheme);
   updateToggleIcon();
 
@@ -17,6 +23,9 @@
       root.setAttribute('data-theme', currentTheme);
       toggle.setAttribute('aria-label', 'Switch to ' + (currentTheme === 'dark' ? 'light' : 'dark') + ' mode');
       updateToggleIcon();
+      try {
+        localStorage.setItem('jk_theme', currentTheme);
+      } catch (e) {}
     });
   }
 
@@ -139,7 +148,9 @@
     const rawHref = link.getAttribute('href');
     if (!rawHref || rawHref.startsWith('http') || rawHref.startsWith('#')) return;
     const linkNormalized = normalizeNavPath(rawHref);
-    if (linkNormalized === currentNormalized || (linkNormalized === '/blog' && currentNormalized.startsWith('/blog-post-'))) {
+    if (linkNormalized === currentNormalized || 
+        (linkNormalized === '/blog' && currentNormalized.startsWith('/blog-post-')) ||
+        (linkNormalized === '/services' && (currentNormalized === '/systems-consulting' || currentNormalized === '/insurance-agency-consulting'))) {
       link.classList.add('active');
       link.setAttribute('aria-current', 'page');
     } else {
