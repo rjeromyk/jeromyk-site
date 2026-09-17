@@ -1,3 +1,121 @@
 {
-  "cleanUrls": true
+  "cleanUrls": true,
+  "redirects": [
+    {
+      "source": "/blog-post-1",
+      "destination": "/blog/why-insurance-agencies-need-lead-systems",
+      "permanent": true
+    },
+    {
+      "source": "/blog-post-1.html",
+      "destination": "/blog/why-insurance-agencies-need-lead-systems",
+      "permanent": true
+    },
+    {
+      "source": "/blog-post-2",
+      "destination": "/blog/how-to-manage-3m-month-insurance-ads",
+      "permanent": true
+    },
+    {
+      "source": "/blog-post-2.html",
+      "destination": "/blog/how-to-manage-3m-month-insurance-ads",
+      "permanent": true
+    },
+    {
+      "source": "/blog-post-3",
+      "destination": "/blog/facebook-ads-playbook-insurance-agencies",
+      "permanent": true
+    },
+    {
+      "source": "/blog-post-3.html",
+      "destination": "/blog/facebook-ads-playbook-insurance-agencies",
+      "permanent": true
+    },
+    {
+      "source": "/blog-post-4",
+      "destination": "/blog/unit-economics-scaling-business-systems",
+      "permanent": true
+    },
+    {
+      "source": "/blog-post-4.html",
+      "destination": "/blog/unit-economics-scaling-business-systems",
+      "permanent": true
+    },
+    {
+      "source": "/lead-vendor-questions",
+      "destination": "/blog/questions-to-ask-insurance-lead-vendors",
+      "permanent": true
+    },
+    {
+      "source": "/lead-vendor-questions.html",
+      "destination": "/blog/questions-to-ask-insurance-lead-vendors",
+      "permanent": true
+    },
+    {
+      "source": "/trucker",
+      "destination": "/trucker-insurance-leads",
+      "permanent": true
+    },
+    {
+      "source": "/trucker.html",
+      "destination": "/trucker-insurance-leads",
+      "permanent": true
+    },
+    {
+      "source": "/spanish",
+      "destination": "/spanish-insurance-leads",
+      "permanent": true
+    },
+    {
+      "source": "/spanish.html",
+      "destination": "/spanish-insurance-leads",
+      "permanent": true
+    },
+    {
+      "source": "/veterans",
+      "destination": "/veterans-life-insurance-leads",
+      "permanent": true
+    },
+    {
+      "source": "/veterans.html",
+      "destination": "/veterans-life-insurance-leads",
+      "permanent": true
+    },
+    {
+      "source": "/final-expense",
+      "destination": "/final-expense-leads",
+      "permanent": true
+    },
+    {
+      "source": "/final-expense.html",
+      "destination": "/final-expense-leads",
+      "permanent": true
+    },
+    {
+      "source": "/iul",
+      "destination": "/iul-insurance-leads",
+      "permanent": true
+    },
+    {
+      "source": "/iul.html",
+      "destination": "/iul-insurance-leads",
+      "permanent": true
+    },
+    {
+      "source": "/mortgage-protection",
+      "destination": "/mortgage-protection-leads",
+      "permanent": true
+    },
+    {
+      "source": "/mortgage-protection.html",
+      "destination": "/mortgage-protection-leads",
+      "permanent": true
+    },
+    {
+      "source": "/blog.html",
+      "destination": "/blog",
+      "permanent": true
+    }
+  ],
+  "trailingSlash": false
 }

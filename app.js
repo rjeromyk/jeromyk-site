@@ -140,17 +140,21 @@
     return path;
   }
 
-  const segments = window.location.pathname.split('/').filter(Boolean);
-  const lastSegment = segments.length > 0 ? segments[segments.length - 1] : '';
-  const currentNormalized = normalizeNavPath(lastSegment ? '/' + lastSegment : '/');
+  const fullPath = window.location.pathname;
+  const currentNormalized = normalizeNavPath(fullPath);
 
   document.querySelectorAll('.header__nav a:not(.btn), .mobile-nav a:not(.btn)').forEach(link => {
     const rawHref = link.getAttribute('href');
     if (!rawHref || rawHref.startsWith('http') || rawHref.startsWith('#')) return;
     const linkNormalized = normalizeNavPath(rawHref);
+    const isBlog = currentNormalized === '/blog' || currentNormalized.startsWith('/blog/') || currentNormalized.startsWith('/blog-post-');
+    const isServices = currentNormalized === '/services' || 
+                       currentNormalized === '/systems-consulting' || 
+                       currentNormalized === '/insurance-agency-consulting' ||
+                       currentNormalized.endsWith('-leads');
     if (linkNormalized === currentNormalized || 
-        (linkNormalized === '/blog' && currentNormalized.startsWith('/blog-post-')) ||
-        (linkNormalized === '/services' && (currentNormalized === '/systems-consulting' || currentNormalized === '/insurance-agency-consulting'))) {
+        (linkNormalized === '/blog' && isBlog) ||
+        (linkNormalized === '/services' && isServices)) {
       link.classList.add('active');
       link.setAttribute('aria-current', 'page');
     } else {
