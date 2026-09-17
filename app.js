@@ -120,11 +120,31 @@
   }, 800);
 
   /* ── Active Nav Link ── */
-  const currentPath = window.location.pathname.split('/').pop() || 'index.html';
-  document.querySelectorAll('.header__nav a, .mobile-nav a').forEach(link => {
-    const href = link.getAttribute('href');
-    if (href === currentPath || (currentPath === '' && href === 'index.html')) {
+  function normalizeNavPath(path) {
+    if (!path) return '/';
+    path = path.split('?')[0].split('#')[0];
+    path = path.replace(/^\.\//, '');
+    if (!path.startsWith('/')) path = '/' + path;
+    path = path.replace(/\.html$/, '');
+    if (path.length > 1 && path.endsWith('/')) path = path.slice(0, -1);
+    if (path === '/index' || path === '') path = '/';
+    return path;
+  }
+
+  const segments = window.location.pathname.split('/').filter(Boolean);
+  const lastSegment = segments.length > 0 ? segments[segments.length - 1] : '';
+  const currentNormalized = normalizeNavPath(lastSegment ? '/' + lastSegment : '/');
+
+  document.querySelectorAll('.header__nav a:not(.btn), .mobile-nav a:not(.btn)').forEach(link => {
+    const rawHref = link.getAttribute('href');
+    if (!rawHref || rawHref.startsWith('http') || rawHref.startsWith('#')) return;
+    const linkNormalized = normalizeNavPath(rawHref);
+    if (linkNormalized === currentNormalized || (linkNormalized === '/blog' && currentNormalized.startsWith('/blog-post-'))) {
       link.classList.add('active');
+      link.setAttribute('aria-current', 'page');
+    } else {
+      link.classList.remove('active');
+      link.removeAttribute('aria-current');
     }
   });
 
@@ -223,7 +243,7 @@
         });
 
         if (form.dataset.leadForm === 'playbook') {
-          window.open('./playbook.pdf', '_blank', 'noopener');
+          window.open('/playbook.pdf', '_blank', 'noopener');
         }
 
         setTimeout(() => {

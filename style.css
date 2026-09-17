@@ -276,10 +276,12 @@ a.btn--ghost {
   position: relative;
 }
 .header__nav a:hover,
-.header__nav a.active {
+.header__nav a.active,
+.header__nav a[aria-current="page"] {
   color: var(--color-text);
 }
-.header__nav a.active::after {
+.header__nav a.active::after,
+.header__nav a[aria-current="page"]::after {
   content: '';
   position: absolute;
   bottom: -4px;
@@ -347,7 +349,9 @@ a.btn--ghost {
   color: var(--color-text);
   text-decoration: none;
 }
-.mobile-nav a:hover {
+.mobile-nav a:hover,
+.mobile-nav a.active,
+.mobile-nav a[aria-current="page"] {
   color: var(--color-accent);
 }
 
