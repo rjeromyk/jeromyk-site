@@ -1,0 +1,2 @@
+# Stdlib only — no pip dependencies required. Python 3.8+.
+# (Deliberately empty: server.py uses only the Python standard library.)
