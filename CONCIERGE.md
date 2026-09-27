@@ -11,8 +11,8 @@ The floating chat widget on the homepage ("the HOW?! feature"). Two pieces:
 
 ```
 visitor → widget (concierge.js) → POST {message, history} → concierge-server:8090/chat
-                                                              → Claude Haiku (Anthropic) or Muse Spark (Meta Model API)
-                                                              → {"reply", "cta"?} → widget renders
+                                                              → Muse Spark (Meta Model API), with Claude Haiku (Anthropic) as automatic fallback
+                                                              → {"reply", "cta"?, "provider", "fallback"} → widget renders
 ```
 
 - The widget sends the visitor's message plus the last 10 turns of history as JSON.
@@ -22,19 +22,21 @@ visitor → widget (concierge.js) → POST {message, history} → concierge-serv
 
 ## Two models, one concierge
 
-The backend supports **two LLM providers** behind the same system prompt and knowledge base — so the only variable is the model itself:
+The backend runs **Muse Spark (Meta Model API) as the default**, with **Claude Haiku (Anthropic) as automatic fallback** — behind the same system prompt and knowledge base.
 
-| Provider | Model (default) | Key env var | Model override |
-|---|---|---|---|
-| `anthropic` (default) | `claude-haiku-4-5` | `ANTHROPIC_API_KEY` | `CONCIERGE_MODEL` |
-| `meta` | `muse-spark-1.1` | `META_API_KEY` | `META_MODEL` |
+| Provider | Role | Model (default) | Key env var | Model override |
+|---|---|---|---|---|
+| `meta` (default) | primary | `muse-spark-1.1` | `META_API_KEY` | `META_MODEL` |
+| `anthropic` | automatic fallback | `claude-haiku-4-5` | `ANTHROPIC_API_KEY` | `CONCIERGE_MODEL` |
 
-- **Default provider:** `CONCIERGE_PROVIDER` (`anthropic` or `meta`). Defaults to `anthropic`.
+- **Default provider:** `CONCIERGE_PROVIDER` (`meta` or `anthropic`). Intended default is **`meta`**.
+- **Automatic fallback (meta → anthropic):** if the Meta call fails — network error, non-200, or empty reply (the preview API's known occasional flakiness) — the server retries once with Haiku, provided `ANTHROPIC_API_KEY` is configured. If Haiku also fails (or has no key), the client gets the existing clean `502 concierge_unavailable`. There is no anthropic → meta fallback: an explicit `"provider": "anthropic"` request is honored as-is, and its failure is not retried elsewhere.
+- **How you see it:** every reply carries `"provider"` (the model that *actually* answered) and `"fallback"` (boolean). A fallback reply looks like `{"reply": "...", "provider": "anthropic", "fallback": true}`. Fallback events are also logged (timestamp, IP hash, from → to, latency — never message content) so you can watch the rate in the service logs.
 - **Meta Model API** (verified against dev.meta.ai/docs, 2026-09-27): base URL `https://api.meta.ai/v1` (overridable via `META_BASE_URL`), Bearer-token auth, OpenAI-compatible `/chat/completions`. Standard-tier models include `muse-spark-1.1`, `muse-spark-1.2`, `muse-spark-1.3` — set `META_MODEL=muse-spark-1.3` to test the newest. Note: Muse Spark always reasons and reasoning tokens bill against the output budget, so the server pins `reasoning_effort: minimal` to protect the 500-token reply cap.
 - **Per-request override (for testing):** `POST /chat` accepts an optional `"provider": "anthropic" | "meta"` field. Still server-side rate-limited. Lets you flip between models in one session without redeploying or touching env. The widget doesn't send it (it posts `{message, history}` and gets the server default) — the field is purely additive.
 - **`/healthz`** reports which providers are configured — booleans only, never key values:
-  `{"ok": true, "default_provider": "anthropic", "providers": {"anthropic": {"configured": true, ...}, "meta": {"configured": false, ...}}, ...}`
-- Every reply includes `"provider"` so you can see which model answered. Request logs include provider + model + token counts (never message content).
+  `{"ok": true, "default_provider": "meta", "providers": {"anthropic": {"configured": true, ...}, "meta": {"configured": true, ...}}, ...}`
+- Every reply includes `"provider"` (the model that actually answered) and `"fallback"` (true when Haiku answered a failed Meta call). Request logs include provider + model + fallback status + token counts (never message content).
 
 ## Getting the Meta Model API key
 
@@ -46,7 +48,7 @@ Pricing (per Meta's launch coverage — verify at dev.meta.ai): ~$1.25 / 1M inpu
 
 ## What Jeromy must provide / approve before go-live
 
-1. **API keys — one or both.** Anthropic: console.anthropic.com → API keys → `ANTHROPIC_API_KEY`. Meta: dev.meta.ai → Model API dashboard → `META_API_KEY`. Keys go in `concierge.env` on the server (mode 0600). **Never commit them.** For the side-by-side test you need both.
+1. **API keys — both recommended.** Anthropic: console.anthropic.com → API keys → `ANTHROPIC_API_KEY`. Meta: dev.meta.ai → Model API dashboard → `META_API_KEY`. Keys go in `concierge.env` on the server (mode 0600). **Never commit them.** The automatic fallback needs the Anthropic key even though Meta is the default; for the side-by-side test you need both.
 2. **Hosting approval** — permission to run the service on the GOAT Leads app server (`45.33.11.54`) as the `deploy` user, and to expose it publicly via ONE of the two options below.
 3. **A 5-minute content review** of `concierge-server/knowledge.md` — it's compiled from the site, but confirm the fit criteria ($50K+/month) and proof figures read the way you want an AI saying them.
 
@@ -61,7 +63,7 @@ mkdir -p /home/deploy/concierge && cd /home/deploy/concierge
 cat > concierge.env <<'EOF'
 ANTHROPIC_API_KEY=<redacted>
 META_API_KEY=<redacted>
-CONCIERGE_PROVIDER=anthropic        # default model; 'meta' to default to Muse Spark
+CONCIERGE_PROVIDER=meta             # default model; 'anthropic' to default to Haiku instead
 CONCIERGE_MODEL=claude-haiku-4-5   # verify current Haiku model ID at docs.anthropic.com
 META_MODEL=muse-spark-1.1          # or muse-spark-1.3 for the newest
 CONCIERGE_CORS_ORIGIN=https://www.jeromykovatana.com

@@ -46,13 +46,14 @@ def provider_ready(provider):
 def ask(provider, question):
     t0 = time.time()
     try:
-        reply, used, usage = server.call_llm(question, [], provider)
+        reply, used, usage, fallback = server.call_llm(question, [], provider)
     except Exception as e:  # noqa: BLE001 — report, don't crash the run
         return {"ok": False, "error": "%s: %s" % (type(e).__name__, e)}
     return {
         "ok": True,
         "reply": reply,
         "provider": used,
+        "fallback": fallback,
         "model": server.model_for(used),
         "latency_s": time.time() - t0,
         "in_tokens": usage.get("input", 0),
@@ -97,7 +98,8 @@ def main():
             if not r["ok"]:
                 emit(f"--- {p}: ERROR {r['error']} ---")
                 continue
-            emit(f"--- {p} ({r['model']}) · {r['latency_s']:.1f}s · "
+            emit(f"--- {p} -> answered by {r['provider']}"
+                 f"{' [FALLBACK]' if r['fallback'] else ''} ({r['model']}) · {r['latency_s']:.1f}s · "
                  f"in={r['in_tokens']} out={r['out_tokens']} ---")
             emit(r["reply"])
             emit()

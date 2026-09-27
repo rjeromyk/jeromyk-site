@@ -4,16 +4,21 @@ Jeromy Kovatana — AI concierge chat backend.
 
 Stdlib-only Python 3. No pip dependencies. Runs behind the site's chat widget.
 
-  POST /chat    {"message": str, "history": [...], "provider"?: "anthropic"|"meta"} -> {"reply": str, "cta"?: {...}, "provider": str}
+  POST /chat    {"message": str, "history": [...], "provider"?: "anthropic"|"meta"} -> {"reply": str, "cta"?: {...}, "provider": str, "fallback": bool}
   GET  /healthz -> {"ok": true, ...}
 
-Dual-provider: Anthropic Claude Haiku (default) and Muse Spark via Meta Model API.
-Same system prompt + knowledge base for both — the model is the variable under test.
+Dual-provider with automatic fallback: Muse Spark via Meta Model API is the
+default; Anthropic Claude Haiku is the automatic fallback. If the Meta call
+fails (network error, non-200, or empty reply — the preview API's known
+flakiness), the server retries once with Haiku and marks the reply
+"fallback": true. An explicit "provider": "anthropic" request never falls back.
+Same system prompt + knowledge base for both — the model is the variable.
 
 Configuration is 100% environment variables (see CONCIERGE.md). No secrets in code.
 
 Privacy: request logs contain timestamp, IP hash, message/response lengths,
-provider, model and latency ONLY. Message content and history are never logged.
+provider, model, fallback status and latency ONLY. Message content and history
+are never logged.
 """
 import collections
 import hashlib
@@ -29,7 +34,7 @@ CFG = {
     "host": os.environ.get("CONCIERGE_HOST", "127.0.0.1"),
     "port": int(os.environ.get("CONCIERGE_PORT", "8090")),
     "cors_origin": os.environ.get("CONCIERGE_CORS_ORIGIN", "https://www.jeromykovatana.com"),
-    "provider": os.environ.get("CONCIERGE_PROVIDER", "anthropic").lower(),
+    "provider": os.environ.get("CONCIERGE_PROVIDER", "meta").lower(),
     "api_key": os.environ.get("ANTHROPIC_API_KEY", ""),
     "model": os.environ.get("CONCIERGE_MODEL", "claude-haiku-4-5"),
     # Meta Model API (Muse Spark) — verified against dev.meta.ai/docs 2026-09-27:
@@ -188,24 +193,44 @@ def call_meta(msgs):
 
 
 def call_llm(message, history, provider=None):
-    """Route one chat turn to the chosen provider.
+    """Route one chat turn to the chosen provider, with meta->anthropic fallback.
 
-    Returns (reply, provider_used, usage). `usage` is {"input": n, "output": n}.
+    Returns (reply, provider_used, usage, fallback). `usage` is {"input": n,
+    "output": n}. `fallback` is True when the Meta call failed and Haiku
+    answered instead.
+
+    Fallback rules:
+    - Active provider "meta" (default or explicit override) + any Meta failure
+      (exception, non-200, empty reply) -> retry once with "anthropic", but
+      only if ANTHROPIC_API_KEY is configured. If Haiku also fails (or has no
+      key), the error propagates and the handler returns a generic 502.
+    - An explicit "anthropic" request never falls back to meta — explicit
+      choice wins; its failure propagates.
     """
-    provider = (provider or CFG["provider"] or "anthropic").lower()
+    provider = (provider or CFG["provider"] or "meta").lower()
     if provider not in PROVIDERS:
         raise ValueError("unknown provider: %r" % (provider,))
 
     if CFG["stub"]:
         idx = int(time.time() // 30) % len(STUB_REPLIES)
-        return STUB_REPLIES[idx], provider, {"input": 0, "output": 0}
+        return STUB_REPLIES[idx], provider, {"input": 0, "output": 0}, False
 
     msgs = build_messages(message, history)
+    fallback = False
     if provider == "meta":
-        reply, usage = call_meta(msgs)
+        try:
+            reply, usage = call_meta(msgs)
+        except Exception:
+            # Meta Model API is still a public preview — it occasionally
+            # returns empty 200s or errors. Fall back to Haiku silently.
+            if not CFG["api_key"]:
+                raise
+            reply, usage = call_anthropic(msgs)
+            provider = "anthropic"
+            fallback = True
     else:
         reply, usage = call_anthropic(msgs)
-    return reply, provider, usage
+    return reply, provider, usage, fallback
 
 
 def model_for(provider):
@@ -291,7 +316,7 @@ class Handler(BaseHTTPRequestHandler):
 
         t0 = time.time()
         try:
-            reply, provider_used, usage = call_llm(message, history, req_provider)
+            reply, provider_used, usage, fallback = call_llm(message, history, req_provider)
         except ValueError:
             self._json(400, {"error": "bad_request"})
             return
@@ -303,16 +328,22 @@ class Handler(BaseHTTPRequestHandler):
 
         # Privacy: log metadata only — never message content.
         ip_hash = hashlib.sha256(ip.encode()).hexdigest()[:12]
-        print(json.dumps({
+        log_entry = {
             "ts": int(time.time()), "ip_hash": ip_hash,
             "msg_len": len(message), "reply_len": len(reply),
             "provider": provider_used, "model": model_for(provider_used),
             "usage_in": usage.get("input", 0), "usage_out": usage.get("output", 0),
             "latency_ms": latency_ms,
             "stub": CFG["stub"],
-        }), flush=True)
+        }
+        if fallback:
+            # Fallback event: Meta failed, Haiku answered. from->to is fixed
+            # (only meta->anthropic auto-fallback exists), recorded for ops.
+            log_entry["fallback"] = True
+            log_entry["fallback_from"] = "meta"
+        print(json.dumps(log_entry), flush=True)
 
-        resp = {"reply": reply, "provider": provider_used}
+        resp = {"reply": reply, "provider": provider_used, "fallback": fallback}
         if BOOKING_RE.search(message):
             resp["cta"] = CTA
         self._json(200, resp)
