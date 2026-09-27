@@ -31,8 +31,10 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 # ---------------------------------------------------------------- config ---
 CFG = {
-    "host": os.environ.get("CONCIERGE_HOST", "127.0.0.1"),
-    "port": int(os.environ.get("CONCIERGE_PORT", "8090")),
+    # Railway: must bind 0.0.0.0 and use the injected $PORT. CONCIERGE_PORT (8090)
+    # remains the local-dev override.
+    "host": os.environ.get("CONCIERGE_HOST", "0.0.0.0"),
+    "port": int(os.environ.get("PORT", os.environ.get("CONCIERGE_PORT", "8090"))),
     "cors_origin": os.environ.get("CONCIERGE_CORS_ORIGIN", "https://www.jeromykovatana.com"),
     "provider": os.environ.get("CONCIERGE_PROVIDER", "meta").lower(),
     "api_key": os.environ.get("ANTHROPIC_API_KEY", ""),

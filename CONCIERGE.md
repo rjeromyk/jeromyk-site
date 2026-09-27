@@ -5,7 +5,7 @@ The floating chat widget on the homepage ("the HOW?! feature"). Two pieces:
 | Piece | Location | Status |
 |---|---|---|
 | Frontend widget | `concierge.js` + `concierge.css`, wired into `index.html` | ✅ On branch `redesign/homepage` |
-| Backend API | `concierge-server/` (this repo, scaffold) → deploy to GOAT Leads app server | 🟡 Scaffold ready, not deployed |
+| Backend API | `concierge-server/` (this repo) → Railway service | 🟡 Railway-ready, not deployed |
 
 ## How it works
 
@@ -42,55 +42,33 @@ The backend runs **Muse Spark (Meta Model API) as the default**, with **Claude H
 
 1. Go to **dev.meta.ai** → sign in → Model API dashboard.
 2. Generate a key (`MODEL_API_KEY`). US public preview; new accounts get **$20 in free credits**.
-3. Store it as `META_API_KEY` in `concierge.env` on the server (mode 0600). **Never commit it.**
+3. Add it as `META_API_KEY` in the Railway service's Variables tab (`ANTHROPIC_API_KEY` likewise). **Never commit keys.**
 
 Pricing (per Meta's launch coverage — verify at dev.meta.ai): ~$1.25 / 1M input tokens, ~$4.25 / 1M output tokens. A typical short chat is fractions of a cent on either provider.
 
 ## What Jeromy must provide / approve before go-live
 
 1. **API keys — both recommended.** Anthropic: console.anthropic.com → API keys → `ANTHROPIC_API_KEY`. Meta: dev.meta.ai → Model API dashboard → `META_API_KEY`. Keys go in `concierge.env` on the server (mode 0600). **Never commit them.** The automatic fallback needs the Anthropic key even though Meta is the default; for the side-by-side test you need both.
-2. **Hosting approval** — permission to run the service on the GOAT Leads app server (`45.33.11.54`) as the `deploy` user, and to expose it publicly via ONE of the two options below.
+2. **Railway service** — approved 2026-09-27 (NOT the GOAT Leads app server, deliberately). Deploy as a new service in the existing Railway workspace (the one holding `ad-campaigns`), from GitHub repo `rjeromyk/jeromyk-site`, root directory `concierge-server`, branch `redesign/homepage` until the redesign merges. Env vars go in the Railway dashboard Variables tab.
 3. **A 5-minute content review** of `concierge-server/knowledge.md` — it's compiled from the site, but confirm the fit criteria ($50K+/month) and proof figures read the way you want an AI saying them.
 
-## Backend: hosting steps
+## Backend: hosting on Railway
 
-The service is stdlib-only Python — no pip, no build step.
+The service is stdlib-only Python — no pip, no build step. It binds `0.0.0.0` and reads the port from `$PORT` (injected by Railway; `CONCIERGE_PORT`/`8090` remains the local-dev override).
 
-```bash
-# on the app server, as deploy
-mkdir -p /home/deploy/concierge && cd /home/deploy/concierge
-# copy server.py, knowledge.md, test_both.py from this repo's concierge-server/
-cat > concierge.env <<'EOF'
-ANTHROPIC_API_KEY=<redacted>
-META_API_KEY=<redacted>
-CONCIERGE_PROVIDER=meta             # default model; 'anthropic' to default to Haiku instead
-CONCIERGE_MODEL=claude-haiku-4-5   # verify current Haiku model ID at docs.anthropic.com
-META_MODEL=muse-spark-1.1          # or muse-spark-1.3 for the newest
-CONCIERGE_CORS_ORIGIN=https://www.jeromykovatana.com
-CONCIERGE_PORT=8090
-EOF
-chmod 600 concierge.env
-sudo cp concierge.service /etc/systemd/system/ && sudo systemctl daemon-reload
-sudo systemctl enable --now concierge
-curl -s http://127.0.0.1:8090/healthz   # {"ok": true, "providers": {...}, ...}
-```
+**One-time setup** (Railway dashboard; the Studio's `railway` CLI is logged in as Jeromy if you prefer terminal):
+1. In the existing workspace (the one holding `ad-campaigns`), create a new service → **Deploy from GitHub repo** → `rjeromyk/jeromyk-site`.
+2. Service Settings → **Root Directory**: `concierge-server`. **Branch**: `redesign/homepage` (switch to `main` after the redesign merges).
+3. Variables tab → add:
+   - `META_API_KEY` = key from dev.meta.ai (required — default provider)
+   - `ANTHROPIC_API_KEY` = key from console.anthropic.com (required — automatic fallback)
+   - `CONCIERGE_PROVIDER` = `meta`
+   - `CONCIERGE_CORS_ORIGIN` = `https://www.jeromykovatana.com`
+   - optional: `META_MODEL` = `muse-spark-1.3`, `CONCIERGE_MODEL` = `claude-haiku-4-5`
+4. Deploy. Railway assigns a public HTTPS URL like `https://<service>.up.railway.app`; the healthcheck hits `GET /healthz`.
+5. Verify: `curl -s https://<service>.up.railway.app/healthz` → `{"ok": true, "default_provider": "meta", "providers": {...}}` (key presence as booleans only).
 
-### Exposing it publicly — pick one
-
-**Option A (recommended): reverse-proxy through existing nginx.**
-Needs root (nginx is root-managed). Add a location block so the widget hits same-origin-ish HTTPS:
-
-```nginx
-location /concierge/ {
-    proxy_pass http://127.0.0.1:8090/;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-}
-```
-
-Then the widget's `BACKEND_URL` = `https://crm.goatleads.com/concierge/chat`. No firewall changes, no new TLS.
-
-**Option B: open the port in the Linode cloud firewall.**
-Verified 2026-09-27: arbitrary ports (tested 8443) are **blocked from the public internet** despite no host firewall (`ufw` inactive) — the block is upstream. In Linode Cloud Manager → Network → Firewalls → the firewall attached to the GOAT Leads server → add an inbound rule: TCP, port 8090, source `0.0.0.0/0`. Then `BACKEND_URL` = `http://45.33.11.54:8090/chat` (plain HTTP unless you terminate TLS yourself — Option A is better for this reason).
+**Frontend wiring:** in `concierge.js`, set `CONCIERGE_CONFIG.BACKEND_URL` to `https://<service>.up.railway.app/chat` and redeploy the site. While it's `""`, the widget shows the graceful fallback (no failed requests).
 
 ## Testing both models side by side
 
