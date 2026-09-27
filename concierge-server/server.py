@@ -4,13 +4,16 @@ Jeromy Kovatana — AI concierge chat backend.
 
 Stdlib-only Python 3. No pip dependencies. Runs behind the site's chat widget.
 
-  POST /chat    {"message": str, "history": [{"role","content"}]} -> {"reply": str, "cta": {...}?}
+  POST /chat    {"message": str, "history": [...], "provider"?: "anthropic"|"meta"} -> {"reply": str, "cta"?: {...}, "provider": str}
   GET  /healthz -> {"ok": true, ...}
+
+Dual-provider: Anthropic Claude Haiku (default) and Muse Spark via Meta Model API.
+Same system prompt + knowledge base for both — the model is the variable under test.
 
 Configuration is 100% environment variables (see CONCIERGE.md). No secrets in code.
 
 Privacy: request logs contain timestamp, IP hash, message/response lengths,
-model and latency ONLY. Message content and history are never logged.
+provider, model and latency ONLY. Message content and history are never logged.
 """
 import collections
 import hashlib
@@ -26,8 +29,14 @@ CFG = {
     "host": os.environ.get("CONCIERGE_HOST", "127.0.0.1"),
     "port": int(os.environ.get("CONCIERGE_PORT", "8090")),
     "cors_origin": os.environ.get("CONCIERGE_CORS_ORIGIN", "https://www.jeromykovatana.com"),
+    "provider": os.environ.get("CONCIERGE_PROVIDER", "anthropic").lower(),
     "api_key": os.environ.get("ANTHROPIC_API_KEY", ""),
     "model": os.environ.get("CONCIERGE_MODEL", "claude-haiku-4-5"),
+    # Meta Model API (Muse Spark) — verified against dev.meta.ai/docs 2026-09-27:
+    # base https://api.meta.ai/v1, Bearer auth, OpenAI-compatible /chat/completions.
+    "meta_api_key": os.environ.get("META_API_KEY", ""),
+    "meta_model": os.environ.get("META_MODEL", "muse-spark-1.1"),
+    "meta_base_url": os.environ.get("META_BASE_URL", "https://api.meta.ai/v1").rstrip("/"),
     "stub": os.environ.get("CONCIERGE_STUB", "") == "1",
     "rate_limit": int(os.environ.get("CONCIERGE_RATE_LIMIT", "20")),  # reqs per window
     "rate_window": int(os.environ.get("CONCIERGE_RATE_WINDOW", "60")),  # seconds
@@ -36,6 +45,8 @@ CFG = {
     "llm_timeout": 25,
     "max_tokens": 500,
 }
+
+PROVIDERS = ("anthropic", "meta")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -54,7 +65,7 @@ SYSTEM_PROMPT = """You are the AI concierge for jeromykovatana.com — Jeromy Ko
 You answer visitor questions about Jeromy, his services, his proof, his process, and whether they're a fit.
 You are NOT Jeromy. Say "I" only as the concierge.
 
-VOICE: plain-spoken operator. Direct, short sentences. No hype, no emojis, no corporate filler.
+VOICE: plain-spoken operator. Direct, short sentences. Warm but never salesy. No hype, no emojis, no corporate filler.
 LENGTH: 2-4 sentences per reply. End with one useful follow-up only when it helps.
 
 GROUNDING — answer ONLY from the knowledge base below. Verified figures must be quoted exactly.
@@ -91,14 +102,7 @@ def rate_limited(ip):
     return False
 
 # ------------------------------------------------------------------- llm ---
-def call_llm(message, history):
-    if CFG["stub"]:
-        idx = int(time.time() // 30) % len(STUB_REPLIES)
-        return STUB_REPLIES[idx]
-
-    if not CFG["api_key"]:
-        raise RuntimeError("ANTHROPIC_API_KEY not configured")
-
+def build_messages(message, history):
     msgs = []
     for turn in history[-(CFG["max_history"]):]:
         role = turn.get("role")
@@ -106,6 +110,12 @@ def call_llm(message, history):
         if role in ("user", "assistant") and content:
             msgs.append({"role": role, "content": content})
     msgs.append({"role": "user", "content": message[: CFG["max_msg_chars"]]})
+    return msgs
+
+
+def call_anthropic(msgs):
+    if not CFG["api_key"]:
+        raise RuntimeError("ANTHROPIC_API_KEY not configured")
 
     body = json.dumps({
         "model": CFG["model"],
@@ -132,11 +142,78 @@ def call_llm(message, history):
     reply = "".join(texts).strip()
     if not reply:
         raise RuntimeError("empty LLM reply")
-    return reply
+    usage = data.get("usage", {}) or {}
+    return reply, {"input": usage.get("input_tokens", 0), "output": usage.get("output_tokens", 0)}
+
+
+def call_meta(msgs):
+    """Muse Spark via Meta Model API (OpenAI-compatible chat completions).
+
+    Verified against dev.meta.ai/docs (2026-09-27): base https://api.meta.ai/v1,
+    Bearer <MODEL_API_KEY> auth, models muse-spark-1.1/1.2/1.3. Muse Spark always
+    reasons and reasoning tokens bill against the output budget, so we pin
+    reasoning_effort to "minimal" to protect the reply budget ("none" is rejected
+    by the API).
+    """
+    if not CFG["meta_api_key"]:
+        raise RuntimeError("META_API_KEY not configured")
+
+    body = json.dumps({
+        "model": CFG["meta_model"],
+        "max_tokens": CFG["max_tokens"],
+        "temperature": 0.3,
+        "reasoning_effort": "minimal",
+        "messages": [{"role": "system", "content": SYSTEM_PROMPT}] + msgs,
+    }).encode()
+
+    req = urllib.request.Request(
+        CFG["meta_base_url"] + "/chat/completions",
+        data=body,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + CFG["meta_api_key"],
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=CFG["llm_timeout"]) as resp:
+        data = json.loads(resp.read().decode())
+    choices = data.get("choices", [])
+    reply = ""
+    if choices:
+        reply = ((choices[0].get("message", {}) or {}).get("content", "") or "").strip()
+    if not reply:
+        raise RuntimeError("empty LLM reply")
+    usage = data.get("usage", {}) or {}
+    return reply, {"input": usage.get("prompt_tokens", 0), "output": usage.get("completion_tokens", 0)}
+
+
+def call_llm(message, history, provider=None):
+    """Route one chat turn to the chosen provider.
+
+    Returns (reply, provider_used, usage). `usage` is {"input": n, "output": n}.
+    """
+    provider = (provider or CFG["provider"] or "anthropic").lower()
+    if provider not in PROVIDERS:
+        raise ValueError("unknown provider: %r" % (provider,))
+
+    if CFG["stub"]:
+        idx = int(time.time() // 30) % len(STUB_REPLIES)
+        return STUB_REPLIES[idx], provider, {"input": 0, "output": 0}
+
+    msgs = build_messages(message, history)
+    if provider == "meta":
+        reply, usage = call_meta(msgs)
+    else:
+        reply, usage = call_anthropic(msgs)
+    return reply, provider, usage
+
+
+def model_for(provider):
+    return CFG["meta_model"] if provider == "meta" else CFG["model"]
 
 # ---------------------------------------------------------------- handler ---
 class Handler(BaseHTTPRequestHandler):
-    server_version = "Concierge/1.0"
+    server_version = "Concierge/2.0"
 
     def _cors(self):
         self.send_header("Access-Control-Allow-Origin", CFG["cors_origin"])
@@ -160,8 +237,17 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == "/healthz":
-            self._json(200, {"ok": True, "model": CFG["model"], "stub": CFG["stub"],
-                             "knowledge_chars": len(KNOWLEDGE)})
+            # Key presence only — never leak key values.
+            self._json(200, {
+                "ok": True,
+                "default_provider": CFG["provider"],
+                "providers": {
+                    "anthropic": {"configured": bool(CFG["api_key"]), "model": CFG["model"]},
+                    "meta": {"configured": bool(CFG["meta_api_key"]), "model": CFG["meta_model"]},
+                },
+                "stub": CFG["stub"],
+                "knowledge_chars": len(KNOWLEDGE),
+            })
         else:
             self._json(404, {"error": "not_found"})
 
@@ -194,9 +280,21 @@ class Handler(BaseHTTPRequestHandler):
             self._json(400, {"error": "bad_request"})
             return
 
+        # Optional per-request provider override (for A/B testing). Additive —
+        # the widget posts {message, history} and gets the server default.
+        req_provider = payload.get("provider")
+        if req_provider is not None:
+            req_provider = str(req_provider).lower()
+            if req_provider not in PROVIDERS:
+                self._json(400, {"error": "bad_request"})
+                return
+
         t0 = time.time()
         try:
-            reply = call_llm(message, history)
+            reply, provider_used, usage = call_llm(message, history, req_provider)
+        except ValueError:
+            self._json(400, {"error": "bad_request"})
+            return
         except Exception:
             # Never leak internals or key state to the client.
             self._json(502, {"error": "concierge_unavailable"})
@@ -208,11 +306,13 @@ class Handler(BaseHTTPRequestHandler):
         print(json.dumps({
             "ts": int(time.time()), "ip_hash": ip_hash,
             "msg_len": len(message), "reply_len": len(reply),
-            "model": CFG["model"], "latency_ms": latency_ms,
+            "provider": provider_used, "model": model_for(provider_used),
+            "usage_in": usage.get("input", 0), "usage_out": usage.get("output", 0),
+            "latency_ms": latency_ms,
             "stub": CFG["stub"],
         }), flush=True)
 
-        resp = {"reply": reply}
+        resp = {"reply": reply, "provider": provider_used}
         if BOOKING_RE.search(message):
             resp["cta"] = CTA
         self._json(200, resp)
@@ -224,7 +324,9 @@ class Handler(BaseHTTPRequestHandler):
 def main():
     server = ThreadingHTTPServer((CFG["host"], CFG["port"]), Handler)
     print(f"concierge listening on {CFG['host']}:{CFG['port']} "
-          f"(model={CFG['model']}, stub={CFG['stub']}, cors={CFG['cors_origin']})", flush=True)
+          f"(default_provider={CFG['provider']}, anthropic={CFG['model']}, "
+          f"meta={CFG['meta_model']}, stub={CFG['stub']}, cors={CFG['cors_origin']})",
+          flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
