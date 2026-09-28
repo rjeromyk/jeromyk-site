@@ -49,7 +49,7 @@ CFG = {
     "model": os.environ.get("CONCIERGE_MODEL", "claude-haiku-4-5"),
     # Meta Model API (Muse Spark) — verified against dev.meta.ai/docs 2026-09-27:
     # base https://api.meta.ai/v1, Bearer auth, OpenAI-compatible /chat/completions.
-    "meta_api_key": os.environ.get("META_API_KEY", ""),
+    "meta_api_key": os.environ.get("META_API_KEY", "").strip(),
     "meta_model": os.environ.get("META_MODEL", "muse-spark-1.1"),
     "meta_base_url": os.environ.get("META_BASE_URL", "https://api.meta.ai/v1").rstrip("/"),
     "stub": os.environ.get("CONCIERGE_STUB", "") == "1",
@@ -322,9 +322,16 @@ def call_llm(message, history, provider=None):
     if provider == "meta":
         try:
             reply, usage = call_meta(msgs)
-        except Exception:
+        except Exception as e:
             # Meta Model API is still a public preview — it occasionally
-            # returns empty 200s or errors. Fall back to Haiku silently.
+            # returns empty 200s or errors. Log the failure signature
+            # (never the key) so the next failure is one log line, then
+            # fall back to Haiku silently.
+            print(json.dumps({
+                "event": "meta_failed",
+                "error": type(e).__name__,
+                "status": getattr(e, "code", None),
+            }), flush=True)
             if not CFG["api_key"]:
                 raise
             reply, usage = call_anthropic(msgs)
