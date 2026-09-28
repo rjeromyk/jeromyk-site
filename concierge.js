@@ -11,7 +11,7 @@ const CONCIERGE_CONFIG = {
   // Planned production value: "https://crm.goatleads.com/concierge/chat"
   // (requires the concierge-server backend running + firewall/nginx exposure —
   //  see CONCIERGE.md). Leave "" until then; the widget degrades gracefully.
-  BACKEND_URL: "",
+  BACKEND_URL: "https://concierge-production-6641.up.railway.app/chat",
   HISTORY_LIMIT: 10,          // turns of history sent to the backend
   REQUEST_TIMEOUT_MS: 30000,  // backend request timeout
   CONTACT_URL: "/contact",    // fallback destination
