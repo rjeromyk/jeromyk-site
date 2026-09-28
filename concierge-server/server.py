@@ -331,6 +331,7 @@ def call_llm(message, history, provider=None):
                 "event": "meta_failed",
                 "error": type(e).__name__,
                 "status": getattr(e, "code", None),
+                "msg": str(e)[:160],
             }), flush=True)
             if not CFG["api_key"]:
                 raise
