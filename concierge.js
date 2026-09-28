@@ -277,7 +277,7 @@ const CONCIERGE_CONFIG = {
      Kind "35s": fires once per session after ~35s with zero interaction.
      Kind "calc": fired by window.JeromyConcierge.calculatorDone(results) when the
      homepage funnel calculator has a complete set of numbers.                */
-  var TEASER_35S_TEXT = "You running ads right now, or still figuring out lead gen?";
+  var TEASER_35S_TEXT = "Quick question. Are you buying leads right now, running your own ads, or a bit of both?";
   var TEASER_CALC_TEXT = "Those numbers have room. Want me to show you where it's leaking?";
 
   var teaserEl = null;
