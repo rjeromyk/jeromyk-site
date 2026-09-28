@@ -6,6 +6,28 @@
       "has": [
         {
           "type": "host",
+          "value": "jeromykovatana.com"
+        }
+      ],
+      "destination": "https://www.jeromykovatana.com/",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "jeromykovatana.com"
+        }
+      ],
+      "destination": "https://www.jeromykovatana.com/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
           "value": "jeromyk.com"
         }
       ],
