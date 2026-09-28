@@ -238,7 +238,9 @@
         ? 'Playbook download: ' + (data.email || '')
         : form.dataset.leadForm === 'checklist'
           ? 'Checklist download: ' + (data.email || '')
-          : 'New strategy call inquiry: ' + (data.name || data.email || '');
+          : form.dataset.leadForm === 'calc_results'
+            ? 'Calculator results: ' + (data.email || '')
+            : 'New strategy call inquiry: ' + (data.name || data.email || '');
       data._template = 'table';
       data._captcha = 'false';
 
@@ -253,14 +255,22 @@
 
         btn.textContent = form.dataset.leadForm === 'playbook' ? 'Opening your playbook…'
           : form.dataset.leadForm === 'checklist' ? 'Opening your checklist…'
+          : form.dataset.leadForm === 'calc_results' ? 'Results sent. Check your inbox.'
           : 'Sent! ✓';
         btn.style.background = 'var(--color-success)';
         form.reset();
 
         if (window.va) window.va('event', {
-          name: form.dataset.leadForm === 'playbook' ? 'playbook_optin' : form.dataset.leadForm === 'checklist' ? 'checklist_optin' : 'call_inquiry',
+          name: form.dataset.leadForm === 'playbook' ? 'playbook_optin' : form.dataset.leadForm === 'checklist' ? 'checklist_optin' : form.dataset.leadForm === 'calc_results' ? 'calc_results_optin' : 'call_inquiry',
           data: { page: window.location.pathname }
         });
+
+        if (form.dataset.leadForm === 'calc_results') {
+          var doneEl = document.getElementById('rd-calc-capture-done');
+          var capNote = document.getElementById('rd-calc-capture-note');
+          if (doneEl) { form.style.display = 'none'; doneEl.style.display = ''; }
+          if (capNote) capNote.style.display = 'none';
+        }
 
         if (assetUrl) {
           window.open(assetUrl, '_blank', 'noopener');

@@ -333,6 +333,26 @@
       }
     }
 
+    // Email capture: only on clean results; snapshot their numbers for Jeromy.
+    var capForm = document.getElementById('rd-calc-capture');
+    var capNote = document.getElementById('rd-calc-capture-note');
+    var capDone = document.getElementById('rd-calc-capture-done');
+    var snapEl = document.getElementById('rd-calc-snapshot');
+    if (snapEl) {
+      var snap = ['funnel=' + state.funnel, 'biz=' + state.biz];
+      if (state.leadType) snap.push('lead_type=' + state.leadType);
+      ['leads', 'pickups', 'booked', 'showed', 'closes', 'spend', 'premium'].forEach(function (k) {
+        if (v[k] !== null && v[k] !== undefined) snap.push(k + '=' + v[k]);
+      });
+      if (closes !== null && closes > 0 && spend !== null) snap.push('cost_per_policy=' + (spend / closes).toFixed(2));
+      if (leads !== null && leads > 0 && closes !== null) snap.push('lead_close_rate=' + (100 * closes / leads).toFixed(1) + '%');
+      snapEl.value = snap.join('; ');
+    }
+    var showCap = entered > 0 && !hasErrors;
+    if (capForm) capForm.style.display = showCap ? '' : 'none';
+    if (capNote) capNote.style.display = showCap ? '' : 'none';
+    if (capDone && showCap) capDone.style.display = 'none';
+
     // Concierge hook: complete diagnosis set -> let the widget open the teardown.
     if (!calcHookFired && v.leads != null && v.leads > 0 &&
         v.spend != null && v.spend > 0 && v.closes != null && !hasErrors) {

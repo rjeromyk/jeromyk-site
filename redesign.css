@@ -606,3 +606,67 @@
   margin-right: auto;
   text-align: center;
 }
+
+/* ── Offer stack + honest scarcity ─────────────────────── */
+.rd-scarcity {
+  font-size: var(--text-sm);
+  color: var(--rd-muted);
+  margin-top: var(--space-4);
+  margin-bottom: 0;
+}
+.rd-offer-stack {
+  list-style: none;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: var(--text-sm);
+  color: var(--rd-muted);
+}
+.rd-offer-stack li { padding-left: 1.4rem; position: relative; }
+.rd-offer-stack li::before {
+  content: "→";
+  position: absolute;
+  left: 0;
+  color: var(--rd-accent);
+}
+.rd-offer-stack--center { align-items: center; }
+.rd-final .rd-scarcity { text-align: center; }
+
+/* ── Calculator email capture ─────────────────────────── */
+.rd-calc__capture {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: var(--space-5);
+}
+.rd-calc__capture input[type="email"] {
+  background: var(--rd-surface-2);
+  border: 1px solid var(--rd-border-soft);
+  border-radius: var(--radius-md);
+  color: var(--rd-text);
+  padding: 0.7rem 1rem;
+  font-size: var(--text-sm);
+  min-width: 220px;
+}
+.rd-calc__capture input[type="email"]::placeholder { color: var(--rd-faint); }
+.rd-calc__capture input[type="email"]:focus {
+  outline: none;
+  border-color: var(--rd-accent);
+  box-shadow: 0 0 0 3px var(--rd-accent-dim);
+}
+.rd-calc__capture-note {
+  font-size: var(--text-xs);
+  color: var(--rd-faint);
+  margin-top: var(--space-2);
+  margin-bottom: 0;
+}
+.rd-calc__capture-done {
+  font-size: var(--text-sm);
+  color: var(--rd-text);
+  margin-top: var(--space-4);
+  margin-bottom: 0;
+}
