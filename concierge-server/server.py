@@ -40,6 +40,10 @@ CFG = {
     "host": os.environ.get("CONCIERGE_HOST", "0.0.0.0"),
     "port": int(os.environ.get("PORT", os.environ.get("CONCIERGE_PORT", "8090"))),
     "cors_origin": os.environ.get("CONCIERGE_CORS_ORIGIN", "https://www.jeromykovatana.com"),
+    # Extra allowed CORS origins, comma-separated (e.g. the production domain).
+    # The legacy single CONCIERGE_CORS_ORIGIN stays first for backward compat.
+    "cors_origins": [o.strip() for o in
+                     os.environ.get("CONCIERGE_CORS_ORIGINS", "").split(",") if o.strip()],
     "provider": os.environ.get("CONCIERGE_PROVIDER", "meta").lower(),
     "api_key": os.environ.get("ANTHROPIC_API_KEY", ""),
     "model": os.environ.get("CONCIERGE_MODEL", "claude-haiku-4-5"),
@@ -61,6 +65,9 @@ CFG = {
     "mailerlite_api_key": os.environ.get("MAILERLITE_API_KEY", ""),
 }
 
+# Full CORS allow-list: legacy origin first, then extras. Deduplicated, order kept.
+CORS_ALLOW = list(dict.fromkeys([o for o in [CFG["cors_origin"]] + CFG["cors_origins"] if o]))
+
 PROVIDERS = ("anthropic", "meta")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -68,7 +75,12 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # Captured non-booker contacts. JSONL, one entry per line. NOTE: Railway's
 # filesystem is ephemeral across redeploys (survives restarts) — Jeromy should
 # review /leads before any redeploy, or this gets wired to durable storage later.
-LEADS_FILE = os.path.join(BASE_DIR, "leads.jsonl")
+# Durable lead storage: Railway volume mounted at CONCIERGE_DATA_DIR (e.g. /data).
+# Falls back to the app dir for local dev. The volume survives redeploys; the
+# app dir does not.
+DATA_DIR = os.environ.get("CONCIERGE_DATA_DIR", BASE_DIR)
+os.makedirs(DATA_DIR, exist_ok=True)
+LEADS_FILE = os.path.join(DATA_DIR, "leads.jsonl")
 
 # -------------------------------------------------- mailerlite signup ---
 # Email capture (playbook / checklist / calculator forms) proxies through
@@ -389,7 +401,9 @@ class Handler(BaseHTTPRequestHandler):
     server_version = "Concierge/2.0"
 
     def _cors(self):
-        self.send_header("Access-Control-Allow-Origin", CFG["cors_origin"])
+        origin = self.headers.get("Origin", "")
+        allowed = origin if origin in CORS_ALLOW else (CORS_ALLOW[0] if CORS_ALLOW else "")
+        self.send_header("Access-Control-Allow-Origin", allowed)
         self.send_header("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.send_header("Vary", "Origin")
@@ -432,6 +446,35 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {"leads": read_leads()})
         else:
             self._json(404, {"error": "not_found"})
+
+    def do_DELETE(self):
+        parsed = urlparse(self.path)
+        if parsed.path != "/lead":
+            self._json(404, {"error": "not_found"})
+            return
+        qs = parse_qs(parsed.query)
+        token = qs.get("token", [""])[0]
+        if not CFG["leads_token"] or not hmac.compare_digest(token, CFG["leads_token"]):
+            self._json(404, {"error": "not_found"})
+            return
+        try:
+            idx = int(qs.get("index", [""])[0])
+        except (ValueError, IndexError):
+            self._json(400, {"error": "bad_request"})
+            return
+        leads = read_leads()
+        if idx < 0 or idx >= len(leads):
+            self._json(404, {"error": "not_found"})
+            return
+        removed = leads.pop(idx)
+        try:
+            with open(LEADS_FILE, "w", encoding="utf-8") as f:
+                for entry in leads:
+                    f.write(json.dumps(entry) + "\n")
+        except OSError:
+            self._json(502, {"error": "concierge_unavailable"})
+            return
+        self._json(200, {"ok": True, "removed": removed})
 
     def do_POST(self):
         parsed = urlparse(self.path)

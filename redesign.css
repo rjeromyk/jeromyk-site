@@ -164,6 +164,10 @@
   color: #04211d;
 }
 .rd-btn--primary:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(45,212,191,0.35); color: #04211d; }
+/* Specificity guard: .rd a (0,1,1) would otherwise paint primary CTA labels
+   teal-on-teal. This (0,2,1) keeps the dark label readable in every state. */
+.rd a.rd-btn--primary,
+.rd a.rd-btn--primary:hover { color: #04211d; }
 .rd-btn--ghost {
   border-color: var(--rd-border-soft);
   color: var(--rd-text);
