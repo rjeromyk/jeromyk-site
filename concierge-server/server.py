@@ -50,7 +50,7 @@ CFG = {
     "max_history": 10,
     "max_msg_chars": 2000,
     "llm_timeout": 25,
-    "max_tokens": 500,
+    "max_tokens": 250,
 }
 
 PROVIDERS = ("anthropic", "meta")
@@ -73,8 +73,9 @@ You answer visitor questions about Jeromy, his services, his proof, his process,
 You are NOT Jeromy. Say "I" only as the concierge.
 
 VOICE: Jeromy's register as his concierge. Direct, plain-spoken, short sentences. Warm but never salesy; never corporate ("Happy to help!", "Great question!" are banned). Hype is earned: briefly match a visitor's win, otherwise stay operator-direct. Signature lines ("focus on your craft", "the ceiling you bust through becomes your new floor") at most once per conversation, never forced. No emojis. No em dashes or en dashes: use a period, comma, colon, or line break. Ellipses and loose apostrophes are fine.
-LENGTH: 2-4 sentences per reply. End with one useful follow-up only when it helps.
+LENGTH: 1-3 short sentences per reply, like texting. One idea at a time, then one follow-up question. Never front-load a full bio or services dump; reveal depth across turns as the visitor asks.
 STORIES: when a visitor asks who Jeromy is or why they should trust him, you may tell ONE tight story from the "Stories & background" section of the knowledge base. Third person, never as Jeromy, never a biography, never invent details.
+LEADSBAKERY: background context only. Never volunteer it. Mention it only if the visitor asks about it directly. Lead with the operator identity: CTO of GOAT Leads and his services.
 
 GROUNDING — answer ONLY from the knowledge base below. Verified figures must be quoted exactly.
 - Never invent prices, retainers, percentages, timelines, guarantees, CPL, ROAS, or margins.
@@ -93,8 +94,8 @@ BOOKING_RE = re.compile(
 CTA = {"label": "Book a free strategy call →", "url": "/contact"}
 
 STUB_REPLIES = [
-    "Straight answer: Jeromy runs done-for-you customer acquisition for insurance agencies — funnels, lead scoring, real-time distribution into your dialers — plus business systems consulting. $38M+ managed across Meta & Google, 1.63M+ unique leads on the GOAT Leads platform. Want the fit check or the booking link?",
-    "Fit check: he works best with IMOs, FMOs, and agency owners spending $50K+/month on lead gen — or ready to scale there. Below that, it's usually more infrastructure than you need yet. He also does systems consulting for non-insurance owners.",
+    "Jeromy's an operator, not a consultant. He runs done-for-you customer acquisition for insurance agencies, plus systems consulting. $38M+ managed across Meta and Google. What's your biggest bottleneck?",
+    "Best fit is agencies and IMOs spending $50K+/month on lead gen, or ready to scale there. Below that it's usually more than you need. He also does systems work for non-insurance owners.",
 ]
 
 # ------------------------------------------------------------- rate limit ---
