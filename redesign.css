@@ -407,6 +407,8 @@
 .rd-service p { font-size: var(--text-base); }
 .rd-service__link { font-weight: 700; display: inline-block; margin-top: var(--space-3); }
 .rd-services__note { margin-top: var(--space-8); }
+.rd-services__doors { margin-top: var(--space-8); padding-top: var(--space-6); border-top: 1px solid var(--rd-border-soft); max-width: 760px; }
+.rd-services__doors p:first-child { font-size: var(--text-lg); line-height: 1.6; }
 
 /* ── TESTIMONIALS (pull quotes) ── */
 .rd-quotes { background: var(--rd-bg-2); border-block: 1px solid var(--rd-border-soft); }
