@@ -1,0 +1,13 @@
+# Railway service config for the JK concierge backend.
+# Dashboard: new service -> Deploy from GitHub repo (rjeromyk/jeromyk-site),
+# Settings -> Root Directory = concierge-server, Branch = redesign/homepage
+# (switch to main after the redesign merges).
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "python3 server.py"
+healthcheckPath = "/healthz"
+healthcheckTimeout = 60
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 10

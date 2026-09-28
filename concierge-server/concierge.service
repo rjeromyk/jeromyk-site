@@ -1,0 +1,22 @@
+[Unit]
+Description=JK Concierge chat backend
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=deploy
+WorkingDirectory=/home/deploy/concierge
+EnvironmentFile=/home/deploy/concierge/concierge.env
+ExecStart=/usr/bin/python3 /home/deploy/concierge/server.py
+Restart=always
+RestartSec=5
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/deploy/concierge
+
+[Install]
+WantedBy=multi-user.target
