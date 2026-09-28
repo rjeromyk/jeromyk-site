@@ -346,6 +346,9 @@ class Handler(BaseHTTPRequestHandler):
             log_entry["fallback_from"] = "meta"
         print(json.dumps(log_entry), flush=True)
 
+        # Voice rule (his own): no em/en dashes ever -- they read as an AI tell.
+        # Em dash becomes an ellipsis (his register); en dash becomes a hyphen.
+        reply = reply.replace(chr(8212), "...").replace(chr(8211), "-")
         resp = {"reply": reply, "provider": provider_used, "fallback": fallback}
         if BOOKING_RE.search(message):
             resp["cta"] = CTA
