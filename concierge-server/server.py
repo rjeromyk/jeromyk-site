@@ -58,7 +58,11 @@ CFG = {
     "max_history": 10,
     "max_msg_chars": 2000,
     "llm_timeout": 25,
-    "max_tokens": 250,
+    # Max output tokens per reply. Must comfortably exceed reasoning usage:
+    # Muse Spark always reasons and reasoning tokens bill against this budget
+    # (seen: 247 reasoning tokens on "minimal" with a ~4k prompt). Too small
+    # a cap -> finish_reason "length" with content=None -> silent fallback.
+    "max_tokens": int(os.environ.get("CONCIERGE_MAX_TOKENS", "1500")),
     # Token gating GET /leads (Jeromy's captured-contact review). Unset -> 404.
     "leads_token": os.environ.get("CONCIERGE_LEADS_TOKEN", ""),
     # MailerLite API key for POST /subscribe. Unset -> clean 503, server keeps running.
