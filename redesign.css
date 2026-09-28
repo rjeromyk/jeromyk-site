@@ -558,3 +558,49 @@
   .rd-story__facts { grid-template-columns: 1fr; }
   .rd-calc__cta { flex-direction: column; align-items: stretch; text-align: center; }
 }
+
+/* ── 9b · Burned by vendors ─────────────────────────────── */
+.rd-burned {
+  background: var(--rd-bg-2);
+  border-top: 1px solid var(--rd-border-soft);
+  border-bottom: 1px solid var(--rd-border-soft);
+}
+.rd-burned__grid { display: grid; gap: var(--space-8); }
+@media (min-width: 960px) {
+  .rd-burned__grid {
+    grid-template-columns: 1.05fr 0.95fr;
+    gap: var(--space-10);
+    align-items: start;
+  }
+}
+.rd-burned__rap {
+  list-style: none;
+  margin: var(--space-6) 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+.rd-burned__rap li {
+  display: flex;
+  gap: var(--space-3);
+  align-items: baseline;
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+.rd-burned__rap .rd-x { color: var(--rd-accent); font-weight: 800; flex: none; }
+.rd-burned__quote { margin-bottom: var(--space-6); }
+.rd-burned .margin-note { margin-bottom: var(--space-6); }
+
+/* ── No-pitch promise under booking CTAs ───────────────── */
+.rd-cta-promise {
+  font-size: var(--text-sm);
+  color: var(--rd-muted);
+  margin-top: var(--space-4);
+  margin-bottom: 0;
+  max-width: 44ch;
+}
+.rd-final .rd-cta-promise {
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
+}
