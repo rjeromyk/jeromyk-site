@@ -5,6 +5,8 @@ Jeromy Kovatana — AI concierge chat backend.
 Stdlib-only Python 3. No pip dependencies. Runs behind the site's chat widget.
 
   POST /chat    {"message": str, "history": [...], "provider"?: "anthropic"|"meta"} -> {"reply": str, "cta"?: {...}, "provider": str, "fallback": bool}
+  POST /lead    {"name": str, "contact": str, "context"?: [...]} -> {"ok": true}
+  POST /subscribe {"email": str, "name"?: str, "source": "playbook"|"checklist"|"calculator", "fields"?: {...}} -> {"ok": true}
   GET  /healthz -> {"ok": true, ...}
 
 Dual-provider with automatic fallback: Muse Spark via Meta Model API is the
@@ -55,6 +57,8 @@ CFG = {
     "max_tokens": 250,
     # Token gating GET /leads (Jeromy's captured-contact review). Unset -> 404.
     "leads_token": os.environ.get("CONCIERGE_LEADS_TOKEN", ""),
+    # MailerLite API key for POST /subscribe. Unset -> clean 503, server keeps running.
+    "mailerlite_api_key": os.environ.get("MAILERLITE_API_KEY", ""),
 }
 
 PROVIDERS = ("anthropic", "meta")
@@ -65,6 +69,57 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # filesystem is ephemeral across redeploys (survives restarts) — Jeromy should
 # review /leads before any redeploy, or this gets wired to durable storage later.
 LEADS_FILE = os.path.join(BASE_DIR, "leads.jsonl")
+
+# -------------------------------------------------- mailerlite signup ---
+# Email capture (playbook / checklist / calculator forms) proxies through
+# POST /subscribe so the MailerLite API key never touches the browser.
+# Groups created 2026-09-28 via the mailerlite workspace skill.
+MAILERLITE_GROUPS = {
+    "playbook": "199855034570114397",      # jeromyk-site: Ad Playbook
+    "checklist": "199855035092305321",     # jeromyk-site: Vendor Checklist
+    "calculator": "199855035721451033",    # jeromyk-site: Calculator Results
+}
+MAILERLITE_SUBSCRIBERS_URL = "https://connect.mailerlite.com/api/subscribers"
+MAILERLITE_TIMEOUT = 10
+
+
+def ml_subscribe(email, name, source, fields):
+    """Subscribe via MailerLite API. Returns (True, None) or (None, error)."""
+    api_key = CFG.get("mailerlite_api_key", "")
+    if not api_key:
+        return None, "not_configured"
+    group_id = MAILERLITE_GROUPS.get(source)
+    if not group_id:
+        return None, "bad_source"
+    ml_fields = {"name": name or ""}
+    if isinstance(fields, dict):
+        for k, v in fields.items():
+            if isinstance(v, (str, int, float)) and len(str(v)) <= 2000:
+                ml_fields[str(k)[:64]] = str(v)
+    body = {
+        "email": email,
+        "status": "active",
+        "groups": [group_id],
+        "fields": ml_fields,
+    }
+    req = urllib.request.Request(
+        MAILERLITE_SUBSCRIBERS_URL,
+        data=json.dumps(body).encode(),
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + api_key,
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=MAILERLITE_TIMEOUT) as resp:
+            if resp.status not in (200, 201):
+                return None, "provider_error"
+    except Exception:
+        # Never leak internals or key state to the client.
+        return None, "provider_error"
+    return True, None
+
 
 # ------------------------------------------------------- knowledge base ---
 def load_knowledge():
@@ -380,7 +435,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         parsed = urlparse(self.path)
-        if parsed.path not in ("/chat", "/lead"):
+        if parsed.path not in ("/chat", "/lead", "/subscribe"):
             self._json(404, {"error": "not_found"})
             return
 
@@ -404,6 +459,10 @@ class Handler(BaseHTTPRequestHandler):
 
         if parsed.path == "/lead":
             self._handle_lead(payload, ip)
+            return
+
+        if parsed.path == "/subscribe":
+            self._handle_subscribe(payload, ip)
             return
 
         message = str(payload.get("message", "")).strip()
@@ -472,6 +531,36 @@ class Handler(BaseHTTPRequestHandler):
         ip_hash = hashlib.sha256(ip.encode()).hexdigest()[:12]
         print(json.dumps({"ts": int(time.time()), "ip_hash": ip_hash,
                           "event": "lead_captured"}), flush=True)
+        self._json(200, {"ok": True})
+
+    def _handle_subscribe(self, payload, ip):
+        if not isinstance(payload, dict):
+            self._json(400, {"error": "bad_request"})
+            return
+        source = str(payload.get("source", "")).strip()
+        email = str(payload.get("email", "")).strip()
+        name = str(payload.get("name", "")).strip()
+        fields = payload.get("fields", {})
+        if source not in MAILERLITE_GROUPS:
+            self._json(400, {"error": "bad_request"})
+            return
+        if not email or len(email) > 254 or EMAIL_RE.match(email) is None:
+            self._json(400, {"error": "bad_request"})
+            return
+        if len(name) > 100:
+            self._json(400, {"error": "bad_request"})
+            return
+        ok, err = ml_subscribe(email, name, source, fields)
+        if err == "not_configured":
+            self._json(503, {"error": "email_capture_not_configured"})
+            return
+        if err:
+            self._json(502, {"error": "concierge_unavailable"})
+            return
+        # Metadata-only log: source + outcome. Never the email address.
+        ip_hash = hashlib.sha256(ip.encode()).hexdigest()[:12]
+        print(json.dumps({"ts": int(time.time()), "ip_hash": ip_hash,
+                          "event": "subscribe", "source": source}), flush=True)
         self._json(200, {"ok": True})
 
     def log_message(self, *args):  # keep stdout clean for our JSON logs

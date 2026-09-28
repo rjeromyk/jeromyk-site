@@ -215,76 +215,117 @@
     updateStickyCta();
   }
 
-  /* ── Lead form submission → FormSubmit (alias endpoint, emails Jeromy) ──
-     Submitted from the browser because FormSubmit's Cloudflare blocks
-     datacenter (serverless) IPs. The alias string hides the real address. */
-  const FORM_ENDPOINT = 'https://formsubmit.co/ajax/63915fc9a7b160b14c65001e56be5180';
+  /* ── Lead form submission ──
+     Email-capture forms (playbook / checklist / calc_results) POST to the
+     concierge backend's /subscribe endpoint, which proxies to MailerLite.
+     The API key lives server-side only — the browser never sees it.
+     "contact" forms are strategy-call inquiries, not email capture; they
+     still use FormSubmit, unchanged. */
+  var CONCIERGE_BASE = (function () {
+    try {
+      var u = (typeof CONCIERGE_CONFIG !== "undefined" && CONCIERGE_CONFIG.BACKEND_URL) || "";
+      if (u) return u.replace(/\/chat\/?$/, "");
+    } catch (e) { /* fall through to default */ }
+    return "https://concierge-production-6641.up.railway.app";
+  })();
+  const SUBSCRIBE_URL = CONCIERGE_BASE + "/subscribe";
+  const SUBSCRIBE_SOURCES = { playbook: "playbook", checklist: "checklist", calc_results: "calculator" };
+  const LEAD_ASSETS = { playbook: "/playbook.pdf", checklist: "/vendor-vetting-checklist.pdf" };
+  const FORM_ENDPOINT = "https://formsubmit.co/ajax/63915fc9a7b160b14c65001e56be5180"; // contact inquiries only
 
-  document.querySelectorAll('form[data-lead-form]').forEach(form => {
-    form.addEventListener('submit', async e => {
+  function leadSuccessUX(kind, form, btn, original) {
+    btn.textContent = kind === "playbook" ? "Opening your playbook…"
+      : kind === "checklist" ? "Opening your checklist…"
+      : kind === "calc_results" ? "Results sent. Check your inbox."
+      : "Sent! ✓";
+    btn.style.background = "var(--color-success)";
+    form.reset();
+
+    const eventName = kind === "playbook" ? "playbook_optin"
+      : kind === "checklist" ? "checklist_optin"
+      : kind === "calc_results" ? "calc_results_optin" : "call_inquiry";
+    if (window.va) window.va("event", { name: eventName, data: { page: window.location.pathname } });
+
+    if (kind === "calc_results") {
+      var doneEl = document.getElementById("rd-calc-capture-done");
+      var capNote = document.getElementById("rd-calc-capture-note");
+      if (doneEl) { form.style.display = "none"; doneEl.style.display = ""; }
+      if (capNote) capNote.style.display = "none";
+    }
+
+    const assetUrl = LEAD_ASSETS[kind];
+    if (assetUrl) window.open(assetUrl, "_blank", "noopener");
+
+    setTimeout(() => {
+      btn.textContent = original;
+      btn.style.background = "";
+      btn.disabled = false;
+    }, 4000);
+  }
+
+  function leadFailUX(btn, original) {
+    btn.textContent = "Something went wrong — try again";
+    btn.disabled = false;
+    setTimeout(() => { btn.textContent = original; }, 4000);
+  }
+
+  document.querySelectorAll("form[data-lead-form]").forEach(form => {
+    form.addEventListener("submit", async e => {
       e.preventDefault();
       const btn = form.querySelector('button[type="submit"]');
       if (!btn || btn.disabled) return;
       const original = btn.textContent;
-      btn.textContent = 'Sending…';
+      btn.textContent = "Sending…";
       btn.disabled = true;
 
       const data = Object.fromEntries(new FormData(form).entries());
-      const LEAD_ASSETS = { playbook: '/playbook.pdf', checklist: '/vendor-vetting-checklist.pdf' };
-      const assetUrl = LEAD_ASSETS[form.dataset.leadForm];
-      data.form_type = form.dataset.leadForm;
-      data.page = window.location.pathname;
-      data._subject = form.dataset.leadForm === 'playbook'
-        ? 'Playbook download: ' + (data.email || '')
-        : form.dataset.leadForm === 'checklist'
-          ? 'Checklist download: ' + (data.email || '')
-          : form.dataset.leadForm === 'calc_results'
-            ? 'Calculator results: ' + (data.email || '')
-            : 'New strategy call inquiry: ' + (data.name || data.email || '');
-      data._template = 'table';
-      data._captcha = 'false';
+      const kind = form.dataset.leadForm;
+      const source = SUBSCRIBE_SOURCES[kind];
+
+      if (!source) {
+        // Strategy-call inquiry -> legacy FormSubmit path, unchanged.
+        data.form_type = kind;
+        data.page = window.location.pathname;
+        data._subject = "New strategy call inquiry: " + (data.name || data.email || "");
+        data._template = "table";
+        data._captcha = "false";
+        try {
+          const res = await fetch(FORM_ENDPOINT, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Accept": "application/json" },
+            body: JSON.stringify(data)
+          });
+          const result = await res.json().catch(() => ({}));
+          if (!res.ok || !(result.success === true || result.success === "true")) throw new Error("send failed");
+          leadSuccessUX(kind, form, btn, original);
+        } catch (err) {
+          leadFailUX(btn, original);
+        }
+        return;
+      }
+
+      // Honeypot: bots get the success UX, nothing is sent.
+      if (data._honey) { leadSuccessUX(kind, form, btn, original); return; }
+
+      const fields = {};
+      if (data.funnel_snapshot) fields.funnel_snapshot = data.funnel_snapshot;
+      const payload = {
+        email: String(data.email || "").trim(),
+        name: String(data.name || "").trim(),
+        source: source,
+        fields: fields
+      };
 
       try {
-        const res = await fetch(FORM_ENDPOINT, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-          body: JSON.stringify(data)
+        const res = await fetch(SUBSCRIBE_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          body: JSON.stringify(payload)
         });
-        const result = await res.json().catch(() => ({}));
-        if (!res.ok || !(result.success === true || result.success === 'true')) throw new Error('send failed');
-
-        btn.textContent = form.dataset.leadForm === 'playbook' ? 'Opening your playbook…'
-          : form.dataset.leadForm === 'checklist' ? 'Opening your checklist…'
-          : form.dataset.leadForm === 'calc_results' ? 'Results sent. Check your inbox.'
-          : 'Sent! ✓';
-        btn.style.background = 'var(--color-success)';
-        form.reset();
-
-        if (window.va) window.va('event', {
-          name: form.dataset.leadForm === 'playbook' ? 'playbook_optin' : form.dataset.leadForm === 'checklist' ? 'checklist_optin' : form.dataset.leadForm === 'calc_results' ? 'calc_results_optin' : 'call_inquiry',
-          data: { page: window.location.pathname }
-        });
-
-        if (form.dataset.leadForm === 'calc_results') {
-          var doneEl = document.getElementById('rd-calc-capture-done');
-          var capNote = document.getElementById('rd-calc-capture-note');
-          if (doneEl) { form.style.display = 'none'; doneEl.style.display = ''; }
-          if (capNote) capNote.style.display = 'none';
-        }
-
-        if (assetUrl) {
-          window.open(assetUrl, '_blank', 'noopener');
-        }
-
-        setTimeout(() => {
-          btn.textContent = original;
-          btn.style.background = '';
-          btn.disabled = false;
-        }, 4000);
+        if (!res.ok) throw new Error("send failed");
+        leadSuccessUX(kind, form, btn, original);
       } catch (err) {
-        btn.textContent = 'Something went wrong — try again';
-        btn.disabled = false;
-        setTimeout(() => { btn.textContent = original; }, 4000);
+        leadFailUX(btn, original);
       }
     });
   });
