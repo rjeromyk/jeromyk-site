@@ -14,7 +14,7 @@ const CONCIERGE_CONFIG = {
   BACKEND_URL: "https://concierge-production-6641.up.railway.app/chat",
   HISTORY_LIMIT: 10,          // turns of history sent to the backend
   REQUEST_TIMEOUT_MS: 30000,  // backend request timeout
-  CONTACT_URL: "/contact",    // fallback destination
+  CONTACT_URL: "/contact#book",    // deep-link: lands on the booking calendar
 };
 
 (function () {
@@ -33,7 +33,8 @@ const CONCIERGE_CONFIG = {
 
   var FALLBACK_HTML =
     "Looks like I'm offline right now — the human way still works. " +
-    "Book a free strategy call and Jeromy will get back to you within 24 hours.";
+    "Grab a free funnel teardown: Jeromy maps exactly where your funnel is " +
+    "leaking on a 30-minute call.";
 
   /* ---------- DOM ---------- */
   var root = document.createElement("div");
@@ -94,9 +95,9 @@ const CONCIERGE_CONFIG = {
   }
 
   function addText(role, text) {
-    // minimal linkification for bare URLs and /contact-style paths
+    // minimal linkification for bare URLs and /contact-style paths (with optional #fragment)
     var safe = esc(text).replace(
-      /(https?:\/\/[^\s<]+|\/contact|\/free-playbook|\/services|\/about)/g,
+      /(https?:\/\/[^\s<]+|\/contact(?:#[a-zA-Z0-9_-]+)?|\/free-playbook|\/services|\/about)/g,
       '<a href="$1" target="_blank" rel="noopener">$1</a>'
     );
     return addMessage(role, safe);
@@ -120,7 +121,7 @@ const CONCIERGE_CONFIG = {
     var a = document.createElement("a");
     a.className = "cc-cta";
     a.href = CFG.CONTACT_URL;
-    a.textContent = "Book a strategy call →";
+    a.textContent = "Get your free funnel teardown →";
     div.appendChild(document.createElement("br"));
     div.appendChild(a);
     scrollDown();
@@ -139,17 +140,20 @@ const CONCIERGE_CONFIG = {
   }
 
   /* ---------- open / close ---------- */
-  function toggle(force) {
+  // openerText: optional first assistant line (used by proactive teasers).
+  function toggle(force, openerText) {
     var open = typeof force === "boolean" ? force : !root.classList.contains("cc-open");
+    if (open) dismissTeaser();
     root.classList.toggle("cc-open", open);
     fab.setAttribute("aria-expanded", open ? "true" : "false");
     fab.setAttribute("aria-label", open ? "Close concierge chat" : "Open concierge chat");
     panel.setAttribute("aria-hidden", open ? "false" : "true");
     if (open && !opened) {
       opened = true;
-      addText("assistant", GREETING);
+      var first = openerText || GREETING;
+      addText("assistant", first);
       renderStarters();
-      history.push({ role: "assistant", content: GREETING });
+      history.push({ role: "assistant", content: first });
     }
     if (open) setTimeout(function () { inputEl.focus({ preventScroll: true }); }, 250);
   }
@@ -187,6 +191,11 @@ const CONCIERGE_CONFIG = {
     var message = (text || "").trim();
     if (!message || busy) return;
     if (message.length > 2000) message = message.slice(0, 2000);
+
+    // Decline right after a booking CTA -> the capture card goes up once the
+    // concierge replies (it says the "Jeromy will text you" line itself).
+    if (lastHadCTA && !captureShown && isDecline(message)) pendingCapture = true;
+
     busy = true;
     sendBtn.disabled = true;
 
@@ -201,6 +210,7 @@ const CONCIERGE_CONFIG = {
         history.push({ role: "assistant", content: FALLBACK_HTML });
         busy = false;
         sendBtn.disabled = false;
+        pendingCapture = false;
       }, 600);
       return;
     }
@@ -209,6 +219,7 @@ const CONCIERGE_CONFIG = {
     postToBackend(message).then(
       function (data) {
         hideTyping();
+        lastHadCTA = !!(data.cta && data.cta.url);
         var div = addText("assistant", data.reply);
         if (data.cta && data.cta.url && data.cta.label) {
           var a = document.createElement("a");
@@ -226,9 +237,14 @@ const CONCIERGE_CONFIG = {
         history.push({ role: "assistant", content: data.reply });
         busy = false;
         sendBtn.disabled = false;
+        if (pendingCapture) {
+          pendingCapture = false;
+          if (LEAD_URL && !captureShown) renderCaptureCard();
+        }
       },
       function () {
         hideTyping();
+        pendingCapture = false;
         showFallback();
         history.push({ role: "assistant", content: FALLBACK_HTML });
         busy = false;
@@ -255,4 +271,185 @@ const CONCIERGE_CONFIG = {
     inputEl.style.height = "auto";
     inputEl.style.height = Math.min(inputEl.scrollHeight, 96) + "px";
   });
+
+  /* ================= proactive teasers =================
+     Dismissible one-line openers. Teaser bubble only, never the full panel.
+     Kind "35s": fires once per session after ~35s with zero interaction.
+     Kind "calc": fired by window.JeromyConcierge.calculatorDone(results) when the
+     homepage funnel calculator has a complete set of numbers.                */
+  var TEASER_35S_TEXT = "You running ads right now, or still figuring out lead gen?";
+  var TEASER_CALC_TEXT = "Those numbers have room. Want me to show you where it's leaking?";
+
+  var teaserEl = null;
+  var pendingCalc = null;
+
+  function teaserSeen(kind) {
+    try { return sessionStorage.getItem("jk_teaser_" + kind) === "1"; }
+    catch (e) { return false; }
+  }
+  function markTeaserSeen(kind) {
+    try { sessionStorage.setItem("jk_teaser_" + kind, "1"); } catch (e) {}
+  }
+
+  function dismissTeaser() {
+    if (teaserEl) { teaserEl.remove(); teaserEl = null; }
+  }
+
+  // Opens the panel with the teaser line as the first assistant message.
+  // autoUserMsg: optional visitor message to send immediately (calculator numbers).
+  function openWithOpener(openerText, autoUserMsg) {
+    dismissTeaser();
+    var wasOpened = opened;
+    if (!root.classList.contains("cc-open")) toggle(true, openerText);
+    if (wasOpened && openerText) {
+      addText("assistant", openerText);
+      history.push({ role: "assistant", content: openerText });
+    }
+    if (autoUserMsg) send(autoUserMsg);
+  }
+
+  function showTeaser(text, kind, onActivate) {
+    if (teaserEl) return false;
+    if (root.classList.contains("cc-open")) return false;
+    if (teaserSeen(kind)) return false;
+    teaserEl = document.createElement("div");
+    teaserEl.className = "cc-teaser";
+    teaserEl.setAttribute("role", "button");
+    teaserEl.setAttribute("tabindex", "0");
+    teaserEl.setAttribute("aria-label", "Open concierge chat");
+    var msg = document.createElement("span");
+    msg.className = "cc-teaser__text";
+    msg.textContent = text;
+    var x = document.createElement("button");
+    x.type = "button";
+    x.className = "cc-teaser__close";
+    x.setAttribute("aria-label", "Dismiss");
+    x.textContent = "×";
+    x.addEventListener("click", function (e) { e.stopPropagation(); dismissTeaser(); });
+    teaserEl.appendChild(msg);
+    teaserEl.appendChild(x);
+    teaserEl.addEventListener("click", function () { onActivate(); });
+    teaserEl.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onActivate(); }
+    });
+    root.appendChild(teaserEl);
+    markTeaserSeen(kind);
+    return true;
+  }
+
+  // Idle teaser: one shot per session, only if the visitor never engaged.
+  // If the tab is hidden at fire time, retry once after 15s.
+  setTimeout(function armIdleTeaser() {
+    if (document.hidden) { setTimeout(armIdleTeaser, 15000); return; }
+    showTeaser(TEASER_35S_TEXT, "35s", function () {
+      openWithOpener(TEASER_35S_TEXT);
+    });
+  }, 35000);
+
+  function summarizeCalc(r) {
+    var parts = [];
+    function num(n) { return Number(n).toLocaleString("en-US"); }
+    if (r.funnel === "1call") parts.push("1-call funnel");
+    else if (r.funnel === "2call") parts.push("2-call funnel");
+    if (r.leads != null) parts.push(num(r.leads) + " leads/week");
+    if (r.pickups != null) parts.push(num(r.pickups) + " pickups");
+    if (r.booked != null) parts.push(num(r.booked) + " booked");
+    if (r.showed != null) parts.push(num(r.showed) + " showed");
+    if (r.closes != null) parts.push(num(r.closes) + " closes");
+    if (r.spend != null) parts.push("$" + num(r.spend) + "/week spend");
+    if (r.premium != null) parts.push("$" + num(r.premium) + " avg premium");
+    return parts.join(", ");
+  }
+
+  // Public hook for the homepage funnel calculator (redesign.js).
+  // Also listens for a "jk:calculator-done" CustomEvent carrying the same payload.
+  window.JeromyConcierge = window.JeromyConcierge || {};
+  window.JeromyConcierge.calculatorDone = function (results) {
+    if (!results || results.leads == null) return;
+    pendingCalc = results;
+    if (root.classList.contains("cc-open")) return; // already talking, don't interrupt
+    dismissTeaser(); // calculator intent outranks the idle teaser
+    showTeaser(TEASER_CALC_TEXT, "calc", function () {
+      openWithOpener(
+        TEASER_CALC_TEXT,
+        "I just ran the funnel calculator. My numbers: " + summarizeCalc(pendingCalc || {}) + "."
+      );
+    });
+  };
+  window.addEventListener("jk:calculator-done", function (e) {
+    if (e && e.detail) window.JeromyConcierge.calculatorDone(e.detail);
+  });
+
+  /* ================= non-booker capture =================
+     When the visitor declines the booking CTA, the concierge says the
+     "Jeromy will text you himself" line and this card collects name +
+     phone/email. Stored server-side (POST /lead) for Jeromy to follow up
+     himself. NO auto-outreach, ever. Shows once per conversation.        */
+  var LEAD_URL = CFG.BACKEND_URL ? CFG.BACKEND_URL.replace(/\/chat$/, "/lead") : "";
+  var lastHadCTA = false;
+  var captureShown = false;
+  var pendingCapture = false;
+
+  var DECLINE_EXACT_RE = /^(no|nah|nope)\.?$/i;
+  var DECLINE_PHRASE_RE = /\b(no thanks|not interested|not right now|maybe later|i'?m good|i'?m all set|not yet|\bpass\b)/i;
+
+  function isDecline(message) {
+    var m = String(message || "").trim();
+    return DECLINE_EXACT_RE.test(m) || DECLINE_PHRASE_RE.test(m);
+  }
+
+  function renderCaptureCard() {
+    captureShown = true;
+    var wrap = document.createElement("div");
+    wrap.className = "cc-msg cc-msg--assistant cc-capture";
+    wrap.innerHTML =
+      '<div class="cc-capture__title">Jeromy will text you himself.</div>' +
+      '<input class="cc-input cc-capture__field" data-capture="name" placeholder="Your name" autocomplete="name" maxlength="100">' +
+      '<input class="cc-input cc-capture__field" data-capture="contact" placeholder="Cell or email" autocomplete="tel" maxlength="120">' +
+      '<button type="button" class="cc-cta cc-capture__btn">Text me</button>' +
+      '<div class="cc-capture__note">No drip sequence. No spam.</div>' +
+      '<div class="cc-capture__err" role="alert"></div>';
+    messagesEl.appendChild(wrap);
+    scrollDown();
+    var nameEl = wrap.querySelector('[data-capture="name"]');
+    var contactEl = wrap.querySelector('[data-capture="contact"]');
+    var btn = wrap.querySelector(".cc-capture__btn");
+    var err = wrap.querySelector(".cc-capture__err");
+    if (nameEl) nameEl.focus({ preventScroll: true });
+    btn.addEventListener("click", function () {
+      var name = (nameEl.value || "").trim();
+      var contact = (contactEl.value || "").trim();
+      err.textContent = "";
+      if (!name) { err.textContent = "What's your name?"; nameEl.focus(); return; }
+      if (!contact || contact.replace(/\D/g, "").length < 7 && contact.indexOf("@") < 0) {
+        err.textContent = "Drop a cell number or email.";
+        contactEl.focus();
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = "Sending...";
+      // "What they wanted": the visitor's recent messages, truncated. No extra form fields.
+      var context = history
+        .filter(function (t) { return t.role === "user"; })
+        .slice(-4)
+        .map(function (t) { return String(t.content).slice(0, 200); });
+      fetch(LEAD_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name, contact: contact, context: context })
+      }).then(function (res) {
+        if (!res.ok) throw new Error("bad status " + res.status);
+        return res.json();
+      }).then(function (data) {
+        if (!data || !data.ok) throw new Error("bad payload");
+        wrap.innerHTML = '<div class="cc-capture__title">Got it. Jeromy will text you himself.</div>';
+        history.push({ role: "user", content: "[Visitor left contact info for Jeromy to text them.]" });
+        scrollDown();
+      }).catch(function () {
+        btn.disabled = false;
+        btn.textContent = "Text me";
+        err.textContent = "Didn't go through. Try again?";
+      });
+    });
+  }
 })();

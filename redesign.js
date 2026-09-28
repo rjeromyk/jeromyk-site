@@ -143,6 +143,11 @@
     vals: { leads: null, spend: null, pickups: null, booked: null, showed: null, closes: null, premium: null }
   };
 
+  // Fires window.JeromyConcierge.calculatorDone(results) once per page view when the
+  // visitor has a complete diagnosis set (leads + spend + closes, no errors).
+  // The concierge widget listens and opens with a diagnosis-style teaser.
+  var calcHookFired = false;
+
   // Build funnel DOM
   var funnelEl = document.getElementById('rd-funnel');
   var emptyEl = document.getElementById('rd-calc-empty');
@@ -327,6 +332,23 @@
           : "You gave us counts. Here's the math you didn't know.";
       }
     }
+
+    // Concierge hook: complete diagnosis set -> let the widget open the teardown.
+    if (!calcHookFired && v.leads != null && v.leads > 0 &&
+        v.spend != null && v.spend > 0 && v.closes != null && !hasErrors) {
+      calcHookFired = true;
+      var hookResults = {
+        funnel: state.funnel, biz: state.biz, leadType: state.leadType,
+        leads: v.leads, pickups: v.pickups, booked: v.booked,
+        showed: v.showed, closes: v.closes, spend: v.spend, premium: v.premium
+      };
+      if (window.JeromyConcierge && typeof window.JeromyConcierge.calculatorDone === 'function') {
+        window.JeromyConcierge.calculatorDone(hookResults);
+      } else {
+        window.dispatchEvent(new CustomEvent('jk:calculator-done', { detail: hookResults }));
+      }
+    }
+
     updateBizWords();
   }
 

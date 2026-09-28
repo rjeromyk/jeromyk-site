@@ -17,8 +17,41 @@ visitor → widget (concierge.js) → POST {message, history} → concierge-serv
 
 - The widget sends the visitor's message plus the last 10 turns of history as JSON.
 - The server answers from `concierge-server/knowledge.md` (compiled from this site's real content — services, verified proof figures, FAQs, playbook, about story, /contact). It never invents prices, guarantees, CPL, or timelines.
-- When the visitor shows booking intent (book/call/price/start…), the response includes a CTA button: **"Book a free strategy call →"** → `/contact`.
-- If the backend is unreachable (or not yet deployed), the widget degrades gracefully: *"Looks like I'm offline right now…"* + a button to `/contact`. No dead chat, no errors.
+- When the visitor shows booking intent (book/call/price/start…, calculator numbers, funnel talk), the response includes a CTA button: **"Get your free funnel teardown →"** → `/contact#book` (deep-links straight onto the booking calendar).
+- If the backend is unreachable (or not yet deployed), the widget degrades gracefully: *"Looks like I'm offline right now…"* + a button to `/contact#book`. No dead chat, no errors.
+
+## Proactive openers (the widget starts conversations now)
+
+The chat no longer waits to be opened. Two dismissible teaser bubbles (one line each, never the full panel), each shown at most once per session:
+
+| Trigger | Teaser copy | Click behavior |
+|---|---|---|
+| ~35s on page, zero interaction | "You running ads right now, or still figuring out lead gen?" | Opens chat with that line as the opener |
+| Funnel calculator completed (leads + spend + closes entered, no errors) | "Those numbers have room. Want me to show you where it's leaking?" | Opens chat, then auto-sends the visitor's numbers so the concierge runs the teardown |
+
+Wiring: `redesign.js` calls `window.JeromyConcierge.calculatorDone(results)` once per page view (also listens for a `jk:calculator-done` CustomEvent as fallback). Teaser state lives in `sessionStorage`; opening the panel manually dismisses any teaser.
+
+## Diagnosis flow (the offer is a live teardown)
+
+The system prompt's `DIAGNOSIS` section reframes the offer: not "book a call" but **"Jeromy tears down your funnel live."** When a visitor shares numbers (typed, or auto-sent from the calculator):
+
+1. The concierge asks for what's missing — at most weekly leads, pickups, closes — **one question per reply**, reusing anything already given.
+2. Then the read, 3 short sentences max: weakest stage from *their* math, the math flipped to show what good looks like, then the book: *"Want Jeromy to tear down your funnel live? He'll map exactly where it's leaking."*
+3. It never invents industry benchmarks — stages are compared against each other, never against made-up averages.
+
+## Non-booker capture (POST /lead, GET /leads)
+
+When a visitor declines the booking CTA ("no thanks", "not interested", …), the concierge says *"No worries. Leave your number and Jeromy will text you himself."* and the widget renders an inline capture card (name + cell/email). Submit posts to:
+
+```
+POST /lead   {"name", "contact", "context":[recent visitor messages, truncated]}
+→ {"ok": true}
+```
+
+- Same rate limit as `/chat`. Validates: name 1–100 chars, contact must be an email or a phone number (7+ digits). `context` is capped server-side (6 messages × 200 chars).
+- Stored as JSONL in `concierge-server/leads.jsonl` — **ephemeral across Railway redeploys** (survives restarts). Jeromy should review before any redeploy; durable storage is a later upgrade.
+- **No auto-outreach anywhere.** Jeromy reviews and texts himself — the send gate holds.
+- **Review:** `GET /leads?token=<CONCIERGE_LEADS_TOKEN>` returns `{"leads": [...]}`. Wrong or missing token → 404 (the endpoint doesn't advertise itself). Set the token as a Railway variable; it never appears in code or logs (logs carry a `lead_captured` event with IP hash only — never PII).
 
 ## Two models, one concierge
 
@@ -51,6 +84,7 @@ Pricing (per Meta's launch coverage — verify at dev.meta.ai): ~$1.25 / 1M inpu
 1. **API keys — both recommended.** Anthropic: console.anthropic.com → API keys → `ANTHROPIC_API_KEY`. Meta: dev.meta.ai → Model API dashboard → `META_API_KEY`. Keys go in `concierge.env` on the server (mode 0600). **Never commit them.** The automatic fallback needs the Anthropic key even though Meta is the default; for the side-by-side test you need both.
 2. **Railway service** — approved 2026-09-27 (NOT the GOAT Leads app server, deliberately). Deploy as a new service in the existing Railway workspace (the one holding `ad-campaigns`), from GitHub repo `rjeromyk/jeromyk-site`, root directory `concierge-server`, branch `redesign/homepage` until the redesign merges. Env vars go in the Railway dashboard Variables tab.
 3. **A 5-minute content review** of `concierge-server/knowledge.md` — it's compiled from the site, but confirm the fit criteria ($50K+/month) and proof figures read the way you want an AI saying them.
+4. **Lead review token** — `CONCIERGE_LEADS_TOKEN` is set as a Railway variable (not in code). Captured contacts are reviewed at `https://<service>.up.railway.app/leads?token=<the-token>` — the token value is shared with Jeromy directly, never committed. Review captured leads before any redeploy: `leads.jsonl` lives on Railway's ephemeral filesystem and does not survive redeploys.
 
 ## Backend: hosting on Railway
 
@@ -105,7 +139,7 @@ Set `BACKEND_URL` to whichever public URL you chose above and redeploy the site.
 
 ## Guardrails (built into `server.py`)
 
-- **Rate limit:** 20 requests / 60s per IP (in-memory sliding window; `CONCIERGE_RATE_LIMIT` / `CONCIERGE_RATE_WINDOW`). 429s beyond that. Applies to both providers and to per-request overrides.
+- **Rate limit:** 20 requests / 60s per IP (in-memory sliding window; `CONCIERGE_RATE_LIMIT` / `CONCIERGE_RATE_WINDOW`). 429s beyond that. Applies to `/chat` and `/lead`, both providers, and per-request overrides.
 - **History cap:** server truncates to the last 10 turns regardless of what the client sends; messages capped at 2,000 chars.
 - **No PII logging:** logs carry timestamp, SHA-256 IP hash, message/reply lengths, provider, model, token counts, latency — never message content.
 - **Prompt protection:** system prompt is never included in responses; LLM errors return a generic `concierge_unavailable` (no key state leaked). `/healthz` reports key *presence* as booleans only.
