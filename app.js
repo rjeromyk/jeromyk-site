@@ -230,12 +230,15 @@
       btn.disabled = true;
 
       const data = Object.fromEntries(new FormData(form).entries());
-      const isPlaybook = form.dataset.leadForm === 'playbook';
+      const LEAD_ASSETS = { playbook: '/playbook.pdf', checklist: '/vendor-vetting-checklist.pdf' };
+      const assetUrl = LEAD_ASSETS[form.dataset.leadForm];
       data.form_type = form.dataset.leadForm;
       data.page = window.location.pathname;
-      data._subject = isPlaybook
+      data._subject = form.dataset.leadForm === 'playbook'
         ? 'Playbook download: ' + (data.email || '')
-        : 'New strategy call inquiry: ' + (data.name || data.email || '');
+        : form.dataset.leadForm === 'checklist'
+          ? 'Checklist download: ' + (data.email || '')
+          : 'New strategy call inquiry: ' + (data.name || data.email || '');
       data._template = 'table';
       data._captcha = 'false';
 
@@ -248,17 +251,19 @@
         const result = await res.json().catch(() => ({}));
         if (!res.ok || !(result.success === true || result.success === 'true')) throw new Error('send failed');
 
-        btn.textContent = form.dataset.leadForm === 'playbook' ? 'Opening your playbook…' : 'Sent! ✓';
+        btn.textContent = form.dataset.leadForm === 'playbook' ? 'Opening your playbook…'
+          : form.dataset.leadForm === 'checklist' ? 'Opening your checklist…'
+          : 'Sent! ✓';
         btn.style.background = 'var(--color-success)';
         form.reset();
 
         if (window.va) window.va('event', {
-          name: isPlaybook ? 'playbook_optin' : 'call_inquiry',
+          name: form.dataset.leadForm === 'playbook' ? 'playbook_optin' : form.dataset.leadForm === 'checklist' ? 'checklist_optin' : 'call_inquiry',
           data: { page: window.location.pathname }
         });
 
-        if (form.dataset.leadForm === 'playbook') {
-          window.open('/playbook.pdf', '_blank', 'noopener');
+        if (assetUrl) {
+          window.open(assetUrl, '_blank', 'noopener');
         }
 
         setTimeout(() => {

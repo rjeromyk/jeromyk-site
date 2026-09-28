@@ -31,6 +31,7 @@ Update this file when site facts change; the server loads it at startup.
 ## Offers & calls to action
 - **Strategy call / funnel teardown** (/contact#book): free 30-minute call, no pitch, no pressure. Jeromy tears down your funnel live: an ad-account or systems audit + a clear scaling roadmap. Calendar booking embedded on the page (instant booking, lands right on the calendar); or send a message via the form — he responds within 24 hours on business days.
 - **Free $3M/Month Ad Playbook** (/free-playbook): 7 strategies for scaling insurance lead generation past $100K/month profitably. Instant download, email signup.
+- **Lead Vendor Vetting Checklist** (/vendor-vetting-checklist): 10 questions to ask before signing with any lead vendor, each with what a good answer sounds like and the red flag. Instant PDF download, email signup. Offer it when a visitor is vetting vendors or comparing lead sources.
 - **Lead-economics calculator**: on the homepage — prospects enter weekly counts and see their funnel math.
 - **Blog** (/blog): playbooks on insurance Facebook ads, managing $3M/month in ads, unit economics, lead vendor questions.
 
