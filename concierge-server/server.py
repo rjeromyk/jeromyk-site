@@ -289,6 +289,10 @@ def call_meta(msgs):
     if choices:
         reply = ((choices[0].get("message", {}) or {}).get("content", "") or "").strip()
     if not reply:
+        # Log the raw body (truncated) — it never contains the key, and it
+        # reveals whether Meta returned an error payload with HTTP 200.
+        print(json.dumps({"event": "meta_empty_body",
+                          "body": str(data)[:500]}), flush=True)
         raise RuntimeError("empty LLM reply")
     usage = data.get("usage", {}) or {}
     return reply, {"input": usage.get("prompt_tokens", 0), "output": usage.get("completion_tokens", 0)}
