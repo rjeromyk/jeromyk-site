@@ -533,7 +533,7 @@
 .rd-book__frame {
   max-width: 900px; margin: 0 auto;
   border: 1px solid var(--rd-border-soft); border-radius: var(--radius-lg);
-  overflow: hidden; background: #fff;
+  overflow: hidden; background: transparent;
 }
 .rd-book__frame iframe { border: 0; display: block; width: 100%; height: 1000px; }
 .rd-book__alt { text-align: center; margin-top: var(--space-4); font-size: var(--text-sm); }

@@ -256,10 +256,22 @@
       <div class="container">
         <h2 style="font-family:var(--font-display);font-weight:800;font-size:var(--text-xl);text-align:center;margin-bottom:var(--space-2);">Book Your Free Strategy Call</h2>
         <p style="color:var(--color-text-muted);text-align:center;max-width:600px;margin:0 auto var(--space-8);">Pick a time that works. 30 minutes on your spanish-language lead generation — what's working, what's not, and how to scale it.</p>
-        <div style="max-width:900px;margin:0 auto;border:1px solid var(--color-divider);border-radius:var(--radius-lg);overflow:hidden;background:#fff;">
-          <iframe src="https://calendar.google.com/calendar/appointments/schedules/AcZssZ13sRuY7xtl1KeI6HHiODBT8ipbWSO4Nvc1rH8-QRqzt5-5mw47Vad8FLMKDIORhzq4aNXC9FQ8?gv=true" style="border:0;display:block;" width="100%" height="1000" frameborder="0" title="Book a strategy call with Jeromy Kovatana"></iframe>
+        <div style="max-width:900px;margin:0 auto;border:1px solid var(--color-divider);border-radius:var(--radius-lg);overflow:hidden;">
+          <!-- Cal.com inline embed begin -->
+          <div id="cal-funnel-teardown" style="width:100%;min-height:700px;"></div>
+          <script type="text/javascript">
+          (function (C, A, L) { let p = function (a, ar) { a.q.push(ar); }; let d = C.document; C.Cal = C.Cal || function () { let cal = C.Cal; let ar = arguments; if (!cal.loaded) { cal.ns = {}; cal.q = cal.q || []; d.head.appendChild(d.createElement("script")).src = A; cal.loaded = true; } if (ar[0] === L) { const api = function () { p(api, arguments); }; const namespace = ar[1]; api.q = api.q || []; d.head.appendChild(d.createElement("script")).src = A; if (typeof window !== "undefined" && window.Cal) window.Cal.ns[namespace] = api; p(api, ar); return api; } p(cal, ar); }; })(window, "https://app.cal.com/embed/embed.js", "init");
+          Cal("init", "funnel-teardown", {origin:"https://app.cal.com"});
+          Cal.ns["funnel-teardown"]("inline", {
+            elementOrSelector: "#cal-funnel-teardown",
+            config: {"layout": "month_view"},
+            calLink: "jeromyk/funnel-teardown"
+          });
+          Cal.ns["funnel-teardown"]("ui", {"theme": "dark", "layout": "month_view"});
+          </script>
+          <!-- Cal.com inline embed end -->
         </div>
-        <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-top:var(--space-4);text-align:center;">Calendar not loading? <a href="https://calendar.app.google/UjwwbYsGsF9ZVn6U8" target="_blank" rel="noopener noreferrer" style="color:var(--color-accent);">Open the booking page in a new tab →</a></p>
+        <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-top:var(--space-4);text-align:center;">Calendar not loading? <a href="https://cal.com/jeromyk/funnel-teardown" target="_blank" rel="noopener noreferrer" style="color:var(--color-accent);">Open the booking page in a new tab →</a></p>
       </div>
     </section>
   </main>
