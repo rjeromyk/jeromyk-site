@@ -283,6 +283,25 @@ const CONCIERGE_CONFIG = {
   var teaserEl = null;
   var pendingCalc = null;
 
+  /* Booking-section guard: while the #book section (calendar embed) is in the
+     viewport, the teaser bubble stays hidden so it can't cover the calendar
+     on mobile. A suppressed teaser may only appear after the section scrolls
+     out of view; nothing else about teaser copy, timing, or triggers changes. */
+  var bookSectionVisible = false;
+
+  function armBookSectionGuard() {
+    var book = document.getElementById('book');
+    if (!book || !('IntersectionObserver' in window)) return;
+    var io = new IntersectionObserver(function (entries) {
+      var visible = entries.some(function (e) { return e.isIntersecting; });
+      bookSectionVisible = visible;
+      if (visible) { dismissTeaser(); }
+      else { maybeShowIdleTeaser(); }
+    }, { threshold: 0.15 });
+    io.observe(book);
+  }
+  armBookSectionGuard();
+
   function teaserSeen(kind) {
     try { return sessionStorage.getItem("jk_teaser_" + kind) === "1"; }
     catch (e) { return false; }
@@ -309,6 +328,7 @@ const CONCIERGE_CONFIG = {
   }
 
   function showTeaser(text, kind, onActivate) {
+    if (bookSectionVisible) return false; // never pop over the booking calendar
     if (teaserEl) return false;
     if (root.classList.contains("cc-open")) return false;
     if (teaserSeen(kind)) return false;
@@ -338,12 +358,21 @@ const CONCIERGE_CONFIG = {
   }
 
   // Idle teaser: one shot per session, only if the visitor never engaged.
-  // If the tab is hidden at fire time, retry once after 15s.
-  setTimeout(function armIdleTeaser() {
-    if (document.hidden) { setTimeout(armIdleTeaser, 15000); return; }
-    showTeaser(TEASER_35S_TEXT, "35s", function () {
+  // If the tab is hidden at fire time, retry once after 15s. If the booking
+  // section is on screen at fire time, hold until it scrolls out of view.
+  var idleTeaserDue = false;
+
+  function maybeShowIdleTeaser() {
+    if (!idleTeaserDue || bookSectionVisible) return;
+    showTeaser(TEASER_35S_TEXT, '35s', function () {
       openWithOpener(TEASER_35S_TEXT);
     });
+  }
+
+  setTimeout(function armIdleTeaser() {
+    if (document.hidden) { setTimeout(armIdleTeaser, 15000); return; }
+    idleTeaserDue = true;
+    maybeShowIdleTeaser();
   }, 35000);
 
   function summarizeCalc(r) {
