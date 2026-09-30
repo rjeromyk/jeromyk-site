@@ -28,7 +28,7 @@ const CONCIERGE_CONFIG = {
   var STARTERS = [
     "What does Jeromy actually do?",
     "Am I a fit to work with him?",
-    "How do I book a strategy call?",
+    "How do I get my free funnel teardown?",
   ];
 
   var FALLBACK_HTML =
@@ -288,6 +288,18 @@ const CONCIERGE_CONFIG = {
      on mobile. A suppressed teaser may only appear after the section scrolls
      out of view; nothing else about teaser copy, timing, or triggers changes. */
   var bookSectionVisible = false;
+  var calculatorSectionVisible = false;
+  var mobileTeaserMedia = window.matchMedia ? window.matchMedia('(max-width: 767px)') : null;
+
+  function calculatorGuardActive() {
+    return calculatorSectionVisible && mobileTeaserMedia && mobileTeaserMedia.matches;
+  }
+
+  function refreshTeaserGuard() {
+    root.classList.toggle('cc-calculator-visible', !!calculatorGuardActive());
+    if (bookSectionVisible || calculatorGuardActive()) dismissTeaser();
+    else if (!maybeShowCalcTeaser()) maybeShowIdleTeaser();
+  }
 
   function armBookSectionGuard() {
     var book = document.getElementById('book');
@@ -295,12 +307,26 @@ const CONCIERGE_CONFIG = {
     var io = new IntersectionObserver(function (entries) {
       var visible = entries.some(function (e) { return e.isIntersecting; });
       bookSectionVisible = visible;
-      if (visible) { dismissTeaser(); }
-      else { maybeShowIdleTeaser(); }
+      refreshTeaserGuard();
     }, { threshold: 0.15 });
     io.observe(book);
   }
   armBookSectionGuard();
+
+  // On mobile, defer both proactive teasers until the calculator leaves view.
+  // Keep the manual launcher available and preserve the pending diagnosis.
+  var calculatorSection = document.getElementById('calculator');
+  if (calculatorSection && 'IntersectionObserver' in window) {
+    var calculatorIO = new IntersectionObserver(function (entries) {
+      calculatorSectionVisible = entries.some(function (e) { return e.isIntersecting; });
+      refreshTeaserGuard();
+    }, { threshold: 0 });
+    calculatorIO.observe(calculatorSection);
+  }
+  if (mobileTeaserMedia) {
+    if (mobileTeaserMedia.addEventListener) mobileTeaserMedia.addEventListener('change', refreshTeaserGuard);
+    else if (mobileTeaserMedia.addListener) mobileTeaserMedia.addListener(refreshTeaserGuard);
+  }
 
   function teaserSeen(kind) {
     try { return sessionStorage.getItem("jk_teaser_" + kind) === "1"; }
@@ -328,7 +354,7 @@ const CONCIERGE_CONFIG = {
   }
 
   function showTeaser(text, kind, onActivate) {
-    if (bookSectionVisible) return false; // never pop over the booking calendar
+    if (bookSectionVisible || calculatorGuardActive()) return false;
     if (teaserEl) return false;
     if (root.classList.contains("cc-open")) return false;
     if (teaserSeen(kind)) return false;
@@ -363,7 +389,7 @@ const CONCIERGE_CONFIG = {
   var idleTeaserDue = false;
 
   function maybeShowIdleTeaser() {
-    if (!idleTeaserDue || bookSectionVisible) return;
+    if (!idleTeaserDue || bookSectionVisible || calculatorGuardActive()) return;
     showTeaser(TEASER_35S_TEXT, '35s', function () {
       openWithOpener(TEASER_35S_TEXT);
     });
@@ -393,17 +419,21 @@ const CONCIERGE_CONFIG = {
   // Public hook for the homepage funnel calculator (redesign.js).
   // Also listens for a "jk:calculator-done" CustomEvent carrying the same payload.
   window.JeromyConcierge = window.JeromyConcierge || {};
-  window.JeromyConcierge.calculatorDone = function (results) {
-    if (!results || results.leads == null) return;
-    pendingCalc = results;
-    if (root.classList.contains("cc-open")) return; // already talking, don't interrupt
-    dismissTeaser(); // calculator intent outranks the idle teaser
-    showTeaser(TEASER_CALC_TEXT, "calc", function () {
+  function maybeShowCalcTeaser() {
+    if (!pendingCalc) return false;
+    return showTeaser(TEASER_CALC_TEXT, "calc", function () {
       openWithOpener(
         TEASER_CALC_TEXT,
         "I just ran the funnel calculator. My numbers: " + summarizeCalc(pendingCalc || {}) + "."
       );
     });
+  }
+  window.JeromyConcierge.calculatorDone = function (results) {
+    if (!results || results.leads == null) return;
+    pendingCalc = results;
+    if (root.classList.contains("cc-open")) return; // already talking, don't interrupt
+    dismissTeaser(); // calculator intent outranks the idle teaser
+    maybeShowCalcTeaser();
   };
   window.addEventListener("jk:calculator-done", function (e) {
     if (e && e.detail) window.JeromyConcierge.calculatorDone(e.detail);

@@ -304,8 +304,12 @@
 .cc-capture__err { font-size: 0.78rem; color: #f87171; min-height: 1.1em; }
 
 /* Mobile: bottom sheet */
-@media (max-width: 480px) {
+@media (max-width: 767px) {
+  /* Match the site's sticky booking CTA through the full mobile breakpoint. */
   #jk-concierge { inset: auto 1rem 5.5rem auto; }
+  #jk-concierge.cc-calculator-visible .cc-teaser { display: none; }
+}
+@media (max-width: 480px) {
   .cc-panel {
     position: fixed;
     inset: auto 0 0 0;

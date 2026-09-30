@@ -286,7 +286,7 @@
         // Strategy-call inquiry -> legacy FormSubmit path, unchanged.
         data.form_type = kind;
         data.page = window.location.pathname;
-        data._subject = "New strategy call inquiry: " + (data.name || data.email || "");
+        data._subject = "New funnel teardown inquiry: " + (data.name || data.email || "");
         data._template = "table";
         data._captcha = "false";
         try {

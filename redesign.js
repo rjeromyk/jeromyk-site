@@ -171,6 +171,8 @@
         '<div class="rd-fnode__hint">raw weekly count</div></div>' +
         '<input type="number" min="0" inputmode="numeric" data-field="' + key + '" placeholder="0" aria-label="' + label + '">' +
         '<span class="rd-field-error" data-error-for="' + key + '"></span>';
+      // Mode changes rebuild the fields, but the entered counts stay canonical.
+      node.querySelector('input').value = state.vals[key] === null ? '' : String(state.vals[key]);
       funnelEl.appendChild(node);
       if (i < stages.length - 1) {
         var arrow = document.createElement('div');
@@ -202,6 +204,7 @@
   // Toggles
   calc.querySelectorAll('[data-funnel-toggle] button').forEach(function (btn) {
     btn.addEventListener('click', function () {
+      if (state.funnel === btn.dataset.funnelToggle) return;
       state.funnel = btn.dataset.funnelToggle;
       calc.querySelectorAll('[data-funnel-toggle] button').forEach(function (b) {
         b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
@@ -341,7 +344,7 @@
     if (snapEl) {
       var snap = ['funnel=' + state.funnel, 'biz=' + state.biz];
       if (state.leadType) snap.push('lead_type=' + state.leadType);
-      ['leads', 'pickups', 'booked', 'showed', 'closes', 'spend', 'premium'].forEach(function (k) {
+      stages.concat(['spend', 'premium']).forEach(function (k) {
         if (v[k] !== null && v[k] !== undefined) snap.push(k + '=' + v[k]);
       });
       if (closes !== null && closes > 0 && spend !== null) snap.push('cost_per_policy=' + (spend / closes).toFixed(2));
@@ -359,8 +362,10 @@
       calcHookFired = true;
       var hookResults = {
         funnel: state.funnel, biz: state.biz, leadType: state.leadType,
-        leads: v.leads, pickups: v.pickups, booked: v.booked,
-        showed: v.showed, closes: v.closes, spend: v.spend, premium: v.premium
+        leads: v.leads, pickups: v.pickups,
+        booked: state.funnel === '2call' ? v.booked : null,
+        showed: state.funnel === '2call' ? v.showed : null,
+        closes: v.closes, spend: v.spend, premium: v.premium
       };
       if (window.JeromyConcierge && typeof window.JeromyConcierge.calculatorDone === 'function') {
         window.JeromyConcierge.calculatorDone(hookResults);
