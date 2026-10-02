@@ -6,7 +6,7 @@ Stdlib-only Python 3. No pip dependencies. Runs behind the site's chat widget.
 
   POST /chat    {"message": str, "history": [...], "provider"?: "anthropic"|"meta"} -> {"reply": str, "cta"?: {...}, "provider": str, "fallback": bool}
   POST /lead    {"name": str, "contact": str, "context"?: [...]} -> {"ok": true}
-  POST /subscribe {"email": str, "name"?: str, "source": "playbook"|"checklist"|"calculator", "fields"?: {...}} -> {"ok": true}
+  POST /subscribe {"email": str, "name"?: str, "source": "playbook"|"checklist"|"calculator", "fields"?: {...}, "newsletter_consent"?: bool, "consent_version"?: str} -> {"ok": true, "delivery": {...}, "newsletter": {...}}
   GET  /healthz -> {"ok": true, ...}
 
 Dual-provider with automatic fallback: Muse Spark via Meta Model API is the
@@ -23,15 +23,21 @@ provider, model, fallback status and latency ONLY. Message content and history
 are never logged.
 """
 import collections
+import fcntl
 import hashlib
 import hmac
 import json
+import math
 import os
 import re
+import threading
 import time
+import uuid
+from datetime import datetime, timezone
+import urllib.error
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, quote
 
 # ---------------------------------------------------------------- config ---
 CFG = {
@@ -65,8 +71,10 @@ CFG = {
     "max_tokens": int(os.environ.get("CONCIERGE_MAX_TOKENS", "1500")),
     # Token gating GET /leads (Jeromy's captured-contact review). Unset -> 404.
     "leads_token": os.environ.get("CONCIERGE_LEADS_TOKEN", ""),
-    # MailerLite API key for POST /subscribe. Unset -> clean 503, server keeps running.
+    # Missing MailerLite config leaves purpose-specific requests in the journal.
     "mailerlite_api_key": os.environ.get("MAILERLITE_API_KEY", ""),
+    # Unset until a dedicated newsletter group and sending plan are approved.
+    "newsletter_group_id": os.environ.get("MAILERLITE_NEWSLETTER_GROUP_ID", "").strip(),
 }
 
 # Full CORS allow-list: legacy origin first, then extras. Deduplicated, order kept.
@@ -85,6 +93,8 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.environ.get("CONCIERGE_DATA_DIR", BASE_DIR)
 os.makedirs(DATA_DIR, exist_ok=True)
 LEADS_FILE = os.path.join(DATA_DIR, "leads.jsonl")
+SUBSCRIBE_FILE = os.path.join(DATA_DIR, "subscribe-requests.jsonl")
+_subscribe_journal_lock = threading.Lock()
 
 # -------------------------------------------------- mailerlite signup ---
 # Email capture (playbook / checklist / calculator forms) proxies through
@@ -97,44 +107,270 @@ MAILERLITE_GROUPS = {
 }
 MAILERLITE_SUBSCRIBERS_URL = "https://connect.mailerlite.com/api/subscribers"
 MAILERLITE_TIMEOUT = 10
+NEWSLETTER_CONSENT_VERSION = "jeromyk-newsletter-v1"
+NEWSLETTER_CONSENT_LABEL = "Also send me Jeromy\u2019s Insurance Lead Notes."
+NEWSLETTER_CONSENT_DESCRIPTION = (
+    "Practical follow-up systems, vendor checks, and agent math for insurance "
+    "agents and agency operators. Occasional emails from Jeromy Kovatana. "
+    "Unsubscribe anytime."
+)
+ASSET_REQUEST_TEXT = {
+    "playbook": "Get the $3M/Month Ad Playbook.",
+    "checklist": "Get the Vendor Vetting Checklist.",
+    "calculator": "Request a copy of my funnel calculator results.",
+}
+MAILERLITE_STATUSES = {"active", "unsubscribed", "unconfirmed", "bounced", "junk"}
+SNAPSHOT_ENUMS = {
+    "funnel": {"1call", "2call"},
+    "biz": {"insurance", "other"},
+    "lead_type": {"veteran", "final-expense", "iul", "trucker", "mortgage-protection", "general-life"},
+}
+SNAPSHOT_COUNTS = {"leads", "pickups", "booked", "showed", "closes"}
+SNAPSHOT_NUMBERS = SNAPSHOT_COUNTS | {"spend", "premium", "cost_per_policy", "lead_close_rate"}
 
 
-def ml_subscribe(email, name, source, fields):
-    """Subscribe via MailerLite API. Returns (True, None) or (None, error)."""
+def safe_capture_path(value):
+    """Bounded attribution only; this path never grants access or permissions."""
+    if (not isinstance(value, str) or len(value) > 240
+            or not re.fullmatch(r"/[A-Za-z0-9/_\-.]*", value)
+            or "//" in value or any(part in (".", "..") for part in value.split("/"))):
+        return ""
+    return value
+
+
+def validate_subscribe(payload):
+    """Keep requested delivery and optional newsletter permission separate."""
+    if not isinstance(payload, dict):
+        return None, "bad_request"
+    email, name, source = (payload.get(k, "") for k in ("email", "name", "source"))
+    if not all(isinstance(v, str) for v in (email, name, source)):
+        return None, "bad_request"
+    email, name, source = email.strip(), name.strip(), source.strip()
+    # The lead endpoint's loose address check is unchanged; email delivery gets
+    # stricter validation and rejects control characters and ambiguous addresses.
+    if (not email or len(email) > 254 or len(email.split("@", 1)[0]) > 64
+            or not re.fullmatch(r"[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+", email)
+            or ".." in email or email.startswith(".") or ".@" in email
+            or any(len(label) > 63 for label in email.rsplit("@", 1)[-1].split("."))):
+        return None, "bad_request"
+    if len(name) > 100 or any(ord(c) < 32 or ord(c) == 127 for c in name):
+        return None, "bad_request"
+    try:
+        name.encode("utf-8")
+    except UnicodeEncodeError:
+        return None, "bad_request"
+    if source not in MAILERLITE_GROUPS:
+        return None, "bad_request"
+    consent = payload.get("newsletter_consent", False)
+    if type(consent) is not bool:
+        return None, "bad_request"
+    version = payload.get("consent_version")
+    if ((consent and version != NEWSLETTER_CONSENT_VERSION)
+            or (not consent and version not in (None, ""))):
+        return None, "bad_request"
+    fields = payload.get("fields", {})
+    if not isinstance(fields, dict) or set(fields) - {"funnel_snapshot"}:
+        return None, "bad_request"
+    snapshot = fields.get("funnel_snapshot")
+    if snapshot is not None:
+        if source != "calculator" or not isinstance(snapshot, str) or not snapshot or len(snapshot) > 2000:
+            return None, "bad_request"
+        values = {}
+        for part in snapshot.split(";"):
+            pair = part.strip().split("=", 1)
+            if len(pair) != 2 or pair[0] in values:
+                return None, "bad_request"
+            key, value = pair
+            if key in SNAPSHOT_ENUMS:
+                if value not in SNAPSHOT_ENUMS[key]:
+                    return None, "bad_request"
+            elif key in SNAPSHOT_NUMBERS:
+                raw = value[:-1] if key == "lead_close_rate" and value.endswith("%") else value
+                if not re.fullmatch(r"\d+(?:\.\d+)?", raw):
+                    return None, "bad_request"
+                number = float(raw)
+                limit = 100 if key == "lead_close_rate" else 1_000_000_000
+                if not math.isfinite(number) or number > limit or (key in SNAPSHOT_COUNTS and not number.is_integer()):
+                    return None, "bad_request"
+            else:
+                return None, "bad_request"
+            values[key] = value
+        if not {"funnel", "biz"} <= values.keys():
+            return None, "bad_request"
+        if values["funnel"] == "1call" and {"booked", "showed"} & values.keys():
+            return None, "bad_request"
+        stages = ["leads", "pickups"] + (["booked", "showed"] if values["funnel"] == "2call" else []) + ["closes"]
+        counts = [float(values[k]) for k in stages if k in values]
+        if any(a < b for a, b in zip(counts, counts[1:])):
+            return None, "bad_request"
+        fields = {"funnel_snapshot": "; ".join(k + "=" + v for k, v in values.items())}
+    elif fields:
+        return None, "bad_request"
+    return {"email": email, "name": name, "source": source, "fields": fields,
+            "newsletter_consent": consent, "page_path": safe_capture_path(payload.get("page"))}, None
+
+
+def append_subscribe_event(entry):
+    """Private, append-only journal; fsync before any provider side effect."""
+    data = (json.dumps(entry, ensure_ascii=False, allow_nan=False) + "\n").encode("utf-8")
+    with _subscribe_journal_lock:
+        fd = os.open(SUBSCRIBE_FILE, os.O_RDWR | os.O_APPEND | os.O_CREAT, 0o600)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX)
+            os.fchmod(fd, 0o600)
+            start = os.lseek(fd, 0, os.SEEK_END)
+            # Recover an incomplete final line left by a process interruption.
+            if start and os.pread(fd, 1, start - 1) != b"\n":
+                position, start = start, 0
+                while position:
+                    offset = max(0, position - 4096)
+                    block = os.pread(fd, position - offset, offset)
+                    newline = block.rfind(b"\n")
+                    if newline >= 0:
+                        start = offset + newline + 1
+                        break
+                    position = offset
+                os.ftruncate(fd, start)
+            try:
+                # Handle interrupted/partial writes under both process/thread locks.
+                view = memoryview(data)
+                while view:
+                    written = os.write(fd, view)
+                    if written <= 0:
+                        raise OSError("journal_write_failed")
+                    view = view[written:]
+                os.fsync(fd)
+                # Persist the directory entry too, including first creation.
+                directory = os.open(os.path.dirname(SUBSCRIBE_FILE), os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+                try:
+                    os.fsync(directory)
+                finally:
+                    os.close(directory)
+            except OSError:
+                os.ftruncate(fd, start)
+                try:
+                    os.fsync(fd)
+                except OSError:
+                    pass
+                raise
+        finally:
+            os.close(fd)
+
+
+def subscribe_request_entry(entry, headers):
+    origin = headers.get("Origin", "")
+    origin = origin if origin in CORS_ALLOW else ""
+    try:
+        referer = urlparse(headers.get("Referer", "")[:4096])
+        referer_origin = referer.scheme + "://" + referer.netloc
+        path = safe_capture_path(referer.path) if referer_origin in CORS_ALLOW else ""
+    except ValueError:
+        path = ""
+    path_source = "referer" if path else None
+    # Browsers commonly send an origin-only cross-origin Referer. Keep the
+    # validated client pathname as explicitly self-reported attribution, only
+    # when the request's Origin is allowed. No path is an authorization signal.
+    if origin and entry.get("page_path"):
+        path, path_source = entry["page_path"], "client"
+    consent = entry["newsletter_consent"]
+    return {
+        "event": "request", "request_id": uuid.uuid4().hex,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "email": entry["email"], "name": entry["name"], "source": entry["source"],
+        "origin": origin, "page_path": path, "page_path_source": path_source,
+        "delivery": {"purpose": "asset_delivery", "asset": entry["source"],
+                     "request_text": ASSET_REQUEST_TEXT[entry["source"]],
+                     "status": "captured", "fields": entry["fields"]},
+        "newsletter": {"purpose": "insurance_lead_notes", "requested": consent,
+                       "status": "pending" if consent else "not_requested",
+                       "consent_version": NEWSLETTER_CONSENT_VERSION if consent else None,
+                       "consent_label": NEWSLETTER_CONSENT_LABEL if consent else None,
+                       "consent_description": NEWSLETTER_CONSENT_DESCRIPTION if consent else None,
+                       "cadence": "occasional" if consent else None},
+    }
+
+
+def ml_request(method, url, body=None, missing_ok=False):
     api_key = CFG.get("mailerlite_api_key", "")
     if not api_key:
         return None, "not_configured"
-    group_id = MAILERLITE_GROUPS.get(source)
-    if not group_id:
-        return None, "bad_source"
-    ml_fields = {"name": name or ""}
-    if isinstance(fields, dict):
-        for k, v in fields.items():
-            if isinstance(v, (str, int, float)) and len(str(v)) <= 2000:
-                ml_fields[str(k)[:64]] = str(v)
-    body = {
-        "email": email,
-        "status": "active",
-        "groups": [group_id],
-        "fields": ml_fields,
-    }
     req = urllib.request.Request(
-        MAILERLITE_SUBSCRIBERS_URL,
-        data=json.dumps(body).encode(),
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + api_key,
-        },
-        method="POST",
+        url, data=json.dumps(body).encode() if body is not None else None,
+        headers={"Content-Type": "application/json", "Authorization": "Bearer " + api_key},
+        method=method,
     )
     try:
         with urllib.request.urlopen(req, timeout=MAILERLITE_TIMEOUT) as resp:
             if resp.status not in (200, 201):
                 return None, "provider_error"
+            raw = resp.read(131073)
+            if len(raw) > 131072:
+                return None, "provider_error"
+            data = json.loads(raw.decode()).get("data")
+            if not isinstance(data, dict):
+                return None, "provider_error"
+            return data, None
+    except urllib.error.HTTPError as exc:
+        return (None, None) if missing_ok and exc.code == 404 else (None, "provider_error")
     except Exception:
-        # Never leak internals or key state to the client.
         return None, "provider_error"
-    return True, None
+
+
+def ml_subscribe(email, name, source, fields):
+    """Record the requested asset only, preserving suppression and other groups.
+
+    Official API: developers.mailerlite.com/api/subscribers (upsert + fetch).
+    Never pass status or resubscribe; no suppressed/unconfirmed contact mutations.
+    """
+    group_id = MAILERLITE_GROUPS.get(source)
+    if not group_id:
+        return None, "bad_source"
+    existing, err = ml_request("GET", MAILERLITE_SUBSCRIBERS_URL + "/" + quote(email, safe=""), missing_ok=True)
+    if err:
+        return None, err
+    if existing is not None:
+        if not isinstance(existing.get("status"), str) or existing["status"] not in MAILERLITE_STATUSES:
+            return None, "provider_error"
+        if existing["status"] != "active":
+            return None, "suppressed"
+    # Calculator snapshots belong to the private per-request journal, not the
+    # provider profile. The account has no funnel_snapshot custom field.
+    ml_fields = {}
+    if name:
+        ml_fields["name"] = name
+    body = {
+        "email": email,
+        "groups": [group_id],
+        "fields": ml_fields,
+    }
+    subscriber, err = ml_request("POST", MAILERLITE_SUBSCRIBERS_URL, body)
+    if err:
+        return None, err
+    if (not isinstance(subscriber.get("status"), str) or subscriber["status"] not in MAILERLITE_STATUSES
+            or not re.fullmatch(r"\d{1,32}", str(subscriber.get("id", "")))):
+        return None, "provider_error"
+    if subscriber["status"] != "active":
+        return None, "suppressed"
+    groups = subscriber.get("groups", [])
+    if not isinstance(groups, list) or not any(isinstance(g, dict) and str(g.get("id")) == group_id for g in groups):
+        return None, "provider_error"
+    return subscriber, None
+
+
+def ml_newsletter(subscriber):
+    """Only explicitly opted-in active contacts enter a separate approved group."""
+    group_id = CFG.get("newsletter_group_id", "")
+    if not group_id:
+        return "pending", "not_configured"
+    if not re.fullmatch(r"\d{1,32}", group_id) or group_id in MAILERLITE_GROUPS.values():
+        return "pending", "not_configured"
+    if subscriber.get("status") != "active":
+        return "pending", "suppressed"
+    url = MAILERLITE_SUBSCRIBERS_URL + "/" + str(subscriber["id"]) + "/groups/" + group_id
+    group, err = ml_request("POST", url)
+    if err or str(group.get("id")) != group_id:
+        return "pending", err or "provider_error"
+    return "subscribed", None
 
 
 # ------------------------------------------------------- knowledge base ---
@@ -593,34 +829,52 @@ class Handler(BaseHTTPRequestHandler):
         self._json(200, {"ok": True})
 
     def _handle_subscribe(self, payload, ip):
-        if not isinstance(payload, dict):
-            self._json(400, {"error": "bad_request"})
-            return
-        source = str(payload.get("source", "")).strip()
-        email = str(payload.get("email", "")).strip()
-        name = str(payload.get("name", "")).strip()
-        fields = payload.get("fields", {})
-        if source not in MAILERLITE_GROUPS:
-            self._json(400, {"error": "bad_request"})
-            return
-        if not email or len(email) > 254 or EMAIL_RE.match(email) is None:
-            self._json(400, {"error": "bad_request"})
-            return
-        if len(name) > 100:
-            self._json(400, {"error": "bad_request"})
-            return
-        ok, err = ml_subscribe(email, name, source, fields)
-        if err == "not_configured":
-            self._json(503, {"error": "email_capture_not_configured"})
-            return
+        entry, err = validate_subscribe(payload)
         if err:
-            self._json(502, {"error": "concierge_unavailable"})
+            self._json(400, {"error": err})
             return
-        # Metadata-only log: source + outcome. Never the email address.
+        request = subscribe_request_entry(entry, self.headers)
+        try:
+            append_subscribe_event(request)
+        except OSError:
+            self._json(503, {"error": "capture_unavailable"})
+            return
+
+        # The captured request is durable before even a read-only provider call.
+        # Provider failure does not block a browser download/on-page results.
+        subscriber, provider_error = ml_subscribe(entry["email"], entry["name"], entry["source"], entry["fields"])
+        newsletter = {"status": "not_requested"}
+        if entry["newsletter_consent"]:
+            if provider_error:
+                newsletter = {"status": "pending", "reason": provider_error}
+            else:
+                status, reason = ml_newsletter(subscriber)
+                newsletter = {"status": status}
+                if reason:
+                    newsletter["reason"] = reason
+        delivery = {"status": "captured", "email_sent": False}
+        outcome = {
+            "event": "outcome", "request_id": request["request_id"],
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "delivery": delivery, "newsletter": newsletter,
+            "asset_provider_status": "recorded" if not provider_error else "pending",
+            "asset_provider_reason": provider_error,
+        }
+        try:
+            append_subscribe_event(outcome)
+        except OSError:
+            # The initial journal still contains the request/consent. Provider
+            # effects cannot be rolled back; do not acknowledge an unrecorded
+            # outcome. Pending entries need separately approved reconciliation.
+            self._json(503, {"error": "capture_unavailable"})
+            return
+        # Metadata-only log: no email, name, snapshot or consent document.
         ip_hash = hashlib.sha256(ip.encode()).hexdigest()[:12]
         print(json.dumps({"ts": int(time.time()), "ip_hash": ip_hash,
-                          "event": "subscribe", "source": source}), flush=True)
-        self._json(200, {"ok": True})
+                          "event": "subscribe", "source": entry["source"],
+                          "delivery_status": delivery["status"],
+                          "newsletter_status": newsletter["status"]}), flush=True)
+        self._json(200, {"ok": True, "delivery": delivery, "newsletter": newsletter})
 
     def log_message(self, *args):  # keep stdout clean for our JSON logs
         pass

@@ -233,18 +233,44 @@
   const LEAD_ASSETS = { playbook: "/playbook.pdf", checklist: "/vendor-vetting-checklist.pdf" };
   const FORM_ENDPOINT = "https://formsubmit.co/ajax/63915fc9a7b160b14c65001e56be5180"; // contact inquiries only
 
-  function leadSuccessUX(kind, form, btn, original) {
+  function leadSuccessUX(kind, form, btn, original, options = {}) {
+    const response = options.response || {};
+    const newsletterConsent = options.newsletterConsent === true;
+    const track = options.track !== false;
     btn.textContent = kind === "playbook" ? "Opening your playbook…"
       : kind === "checklist" ? "Opening your checklist…"
-      : kind === "calc_results" ? "Results sent. Check your inbox."
+      : kind === "calc_results" ? "Results request received."
       : "Sent! ✓";
     btn.style.background = "var(--color-success)";
     form.reset();
 
-    const eventName = kind === "playbook" ? "playbook_optin"
-      : kind === "checklist" ? "checklist_optin"
-      : kind === "calc_results" ? "calc_results_optin" : "call_inquiry";
-    if (window.va) window.va("event", { name: eventName, data: { page: window.location.pathname } });
+    const source = SUBSCRIBE_SOURCES[kind];
+    if (track && window.va) {
+      window.va("event", {
+        name: source ? "asset_request_captured" : "call_inquiry",
+        data: { page: window.location.pathname, ...(source ? { source: source } : {}) }
+      });
+      if (newsletterConsent) {
+        window.va("event", {
+          name: "newsletter_consent_captured",
+          data: { page: window.location.pathname, source: source,
+            consent_version: form.dataset.newsletterConsentVersion,
+            status: response.newsletter?.status || "pending" }
+        });
+      }
+    }
+
+    const statusEl = kind === "calc_results"
+      ? document.getElementById("rd-calc-newsletter-status")
+      : form.querySelector("[data-lead-status]");
+    if (statusEl) {
+      statusEl.textContent = !newsletterConsent ? ""
+        : response.newsletter?.status === "subscribed"
+          ? "You're signed up for Jeromy's Insurance Lead Notes."
+          : response.newsletter?.reason === "suppressed"
+            ? "Your existing email preferences have been kept."
+            : "Your newsletter request is saved.";
+    }
 
     if (kind === "calc_results") {
       var doneEl = document.getElementById("rd-calc-capture-done");
@@ -305,7 +331,7 @@
       }
 
       // Honeypot: bots get the success UX, nothing is sent.
-      if (data._honey) { leadSuccessUX(kind, form, btn, original); return; }
+      if (data._honey) { leadSuccessUX(kind, form, btn, original, { track: false }); return; }
 
       const fields = {};
       if (data.funnel_snapshot) fields.funnel_snapshot = data.funnel_snapshot;
@@ -313,8 +339,13 @@
         email: String(data.email || "").trim(),
         name: String(data.name || "").trim(),
         source: source,
-        fields: fields
+        fields: fields,
+        page: window.location.pathname,
+        newsletter_consent: form.querySelector('input[name="newsletter_consent"]')?.checked === true
       };
+      if (payload.newsletter_consent) {
+        payload.consent_version = form.dataset.newsletterConsentVersion || "";
+      }
 
       try {
         const res = await fetch(SUBSCRIBE_URL, {
@@ -322,8 +353,11 @@
           headers: { "Content-Type": "application/json", "Accept": "application/json" },
           body: JSON.stringify(payload)
         });
-        if (!res.ok) throw new Error("send failed");
-        leadSuccessUX(kind, form, btn, original);
+        const result = await res.json().catch(() => ({}));
+        if (!res.ok || result.ok !== true || result.delivery?.status !== "captured") throw new Error("send failed");
+        leadSuccessUX(kind, form, btn, original, {
+          response: result, newsletterConsent: payload.newsletter_consent
+        });
       } catch (err) {
         leadFailUX(btn, original);
       }

@@ -1,2 +1,3 @@
 .vercel
 concierge.env
+concierge-server/subscribe-requests.jsonl

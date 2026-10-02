@@ -303,13 +303,21 @@
           <div class="rd-calc__cta" id="rd-calc-msg" style="display:none;">
             <p></p>
             <a href="/contact#book" class="rd-btn rd-btn--primary">Want better numbers? Get your free funnel teardown.</a>
-            <form data-lead-form="calc_results" class="rd-calc__capture" id="rd-calc-capture">
+            <form data-lead-form="calc_results" class="rd-calc__capture" id="rd-calc-capture" data-newsletter-consent-version="jeromyk-newsletter-v1">
               <input type="email" name="email" placeholder="you@agency.com" required aria-label="Email address">
               <input type="hidden" name="funnel_snapshot" id="rd-calc-snapshot" value="">
+              <div class="newsletter-option">
+                <input type="checkbox" name="newsletter_consent" id="newsletter-index-1" aria-describedby="newsletter-index-1-description">
+                <div>
+                  <label for="newsletter-index-1" class="newsletter-option__title">Also send me Jeromy&rsquo;s Insurance Lead Notes. <span>(optional)</span></label>
+                  <p id="newsletter-index-1-description" class="newsletter-option__description">Practical follow-up systems, vendor checks, and agent math for insurance agents and agency operators. Occasional emails from Jeromy Kovatana. Unsubscribe anytime.</p>
+                </div>
+              </div>
               <button type="submit" class="rd-btn rd-btn--ghost">Email me my results</button>
             </form>
-            <p class="rd-calc__capture-note" id="rd-calc-capture-note">No spam. Just your numbers, so you have them.</p>
-            <p class="rd-calc__capture-done" id="rd-calc-capture-done" style="display:none;">Sent. Your numbers are on the way. Want Jeromy to read them live? <a href="/contact#book">Get your free funnel teardown &rarr;</a></p>
+            <p class="rd-calc__capture-note" id="rd-calc-capture-note">Just your numbers. No newsletter unless you choose it.</p>
+            <p class="lead-form__status" id="rd-calc-newsletter-status" data-lead-status role="status" aria-live="polite"></p>
+            <p class="rd-calc__capture-done" id="rd-calc-capture-done" style="display:none;">Your results request is saved. You can still review your numbers above. Want Jeromy to read them live? <a href="/contact#book">Get your free funnel teardown &rarr;</a></p>
           </div>
 
           <div class="rd-calc__note">
@@ -505,12 +513,20 @@
             </div>
           </div>
           <div class="rd-fade">
-            <form class="rd-playbook__form" data-lead-form="playbook">
+            <form class="rd-playbook__form" data-lead-form="playbook" data-newsletter-consent-version="jeromyk-newsletter-v1">
               <input type="text" name="_honey" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;height:0;width:0;border:0;padding:0;">
               <label for="lead-email">Email Address</label>
               <input type="email" id="lead-email" name="email" placeholder="you@agency.com" required>
+              <div class="newsletter-option">
+                <input type="checkbox" name="newsletter_consent" id="newsletter-index-2" aria-describedby="newsletter-index-2-description">
+                <div>
+                  <label for="newsletter-index-2" class="newsletter-option__title">Also send me Jeromy&rsquo;s Insurance Lead Notes. <span>(optional)</span></label>
+                  <p id="newsletter-index-2-description" class="newsletter-option__description">Practical follow-up systems, vendor checks, and agent math for insurance agents and agency operators. Occasional emails from Jeromy Kovatana. Unsubscribe anytime.</p>
+                </div>
+              </div>
               <button type="submit" class="rd-btn rd-btn--primary">Get the Playbook →</button>
-              <p class="rd-playbook__fine">No spam. Unsubscribe anytime.</p>
+              <p class="lead-form__status" data-lead-status role="status" aria-live="polite"></p>
+              <p class="rd-playbook__fine">The PDF opens after you submit. Newsletter emails are optional.</p>
             </form>
           </div>
         </div>

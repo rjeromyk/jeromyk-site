@@ -771,6 +771,34 @@ select.input option {
   margin-top: var(--space-4);
 }
 
+/* ── Blog Featured Images ── */
+.blog-feature {
+  margin-block: var(--space-6) var(--space-8);
+}
+.blog-feature__frame {
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-2);
+}
+.blog-feature__image {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+.blog-card--featured .blog-card__image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.blog-card--featured .blog-card__image::after {
+  display: none;
+}
+
 /* ── Blog Post ── */
 .prose {
   max-width: 65ch;
@@ -1379,4 +1407,54 @@ a.btn--primary:hover {
 @media (max-width: 767px) {
   .mobile-sticky-cta { display: block; }
   body { padding-bottom: 66px; }
+}
+
+/* ── Optional Newsletter Consent ── */
+.newsletter-option {
+  display: grid;
+  grid-template-columns: 1.125rem minmax(0, 1fr);
+  gap: var(--space-3);
+  width: 100%;
+  flex-basis: 100%;
+  margin-block: var(--space-3) var(--space-4);
+  text-align: left;
+}
+.newsletter-option input[type="checkbox"] {
+  width: 1.125rem;
+  height: 1.125rem;
+  margin: 0.2rem 0 0;
+  accent-color: var(--rd-accent, var(--color-accent));
+  cursor: pointer;
+}
+.newsletter-option input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--rd-accent, var(--color-accent));
+  outline-offset: 3px;
+}
+.newsletter-option .newsletter-option__title {
+  display: block;
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--rd-text, var(--color-text));
+  cursor: pointer;
+}
+.newsletter-option__title span {
+  font-weight: 400;
+}
+.newsletter-option .newsletter-option__description {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: 1.6;
+  color: var(--rd-muted, var(--color-text-muted));
+}
+.lead-form__status {
+  width: 100%;
+  margin-top: var(--space-3);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--rd-text, var(--color-text));
+}
+.lead-form__status:empty {
+  display: none;
 }

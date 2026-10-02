@@ -31,7 +31,7 @@
     </div>
   </header>
 
-  <main id="main">
+  <main id="main" class="rd">
     <section class="rd-section rd-playbook">
       <div class="rd-container">
         <div class="rd-playbook__grid">
@@ -47,12 +47,20 @@
             <p class="margin-note"><span class="mn-label">Operator note</span>If a vendor can&rsquo;t show you their own funnel math, walk away.</p>
           </div>
           <div class="rd-fade">
-            <form class="rd-playbook__form" data-lead-form="checklist">
+            <form class="rd-playbook__form" data-lead-form="checklist" data-newsletter-consent-version="jeromyk-newsletter-v1">
               <input type="text" name="_honey" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;height:0;width:0;border:0;padding:0;">
               <label for="checklist-email">Email Address</label>
               <input type="email" id="checklist-email" name="email" placeholder="you@agency.com" required>
+              <div class="newsletter-option">
+                <input type="checkbox" name="newsletter_consent" id="newsletter-vendor-vetting-checklist-5" aria-describedby="newsletter-vendor-vetting-checklist-5-description">
+                <div>
+                  <label for="newsletter-vendor-vetting-checklist-5" class="newsletter-option__title">Also send me Jeromy&rsquo;s Insurance Lead Notes. <span>(optional)</span></label>
+                  <p id="newsletter-vendor-vetting-checklist-5-description" class="newsletter-option__description">Practical follow-up systems, vendor checks, and agent math for insurance agents and agency operators. Occasional emails from Jeromy Kovatana. Unsubscribe anytime.</p>
+                </div>
+              </div>
               <button type="submit" class="rd-btn rd-btn--primary">Get the Checklist &rarr;</button>
-              <p class="rd-playbook__fine">Instant PDF download. No spam. Unsubscribe anytime.</p>
+              <p class="lead-form__status" data-lead-status role="status" aria-live="polite"></p>
+              <p class="rd-playbook__fine">The PDF opens after you submit. Newsletter emails are optional.</p>
             </form>
           </div>
         </div>
@@ -95,5 +103,6 @@
     </div>
   </footer>
   <script src="/app.js" defer></script>
+  <script src="/redesign.js" defer></script>
 </body>
 </html>
